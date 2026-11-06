@@ -1,6 +1,7 @@
 import dotenv from 'dotenv'
 import path from 'node:path'
 dotenv.config({ path: path.resolve(process.cwd(), '.env') })
+import fs from 'node:fs'
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
 import { createClient } from '@supabase/supabase-js'
