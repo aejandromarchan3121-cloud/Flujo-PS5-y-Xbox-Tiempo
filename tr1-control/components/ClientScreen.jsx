@@ -24,7 +24,7 @@ export default function ClientScreen() {
   if (!c) return <div className="grid min-h-screen place-items-center font-display text-neon">CONECTANDO…</div>
   const d = derive(c, now)
 
-  /* ---------- BLOQUEADO ---------- */
+  // ---------- BLOQUEADO ----------
   if (d.k === 'agotado') {
     return (
       <div className="fixed inset-0 z-50 flex flex-col bg-black">
@@ -49,7 +49,7 @@ export default function ClientScreen() {
     )
   }
 
-  /* ---------- NORMAL ---------- */
+  // ---------- NORMAL ----------
   const uso = d.k === 'uso'
   return (
     <main className="min-h-screen bg-carbon">
