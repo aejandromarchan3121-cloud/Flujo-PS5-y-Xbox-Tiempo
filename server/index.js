@@ -3,7 +3,7 @@ import 'dotenv/config'
 import fs from 'node:fs'
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
-import { createClient } from 'lib/supabase-js'
+import { createClient } from '@supabase/supabase-js'
 import lgtv2 from 'lgtv2'
 import { RouterOSAPI } from 'node-routeros'
 
