@@ -8,6 +8,8 @@ import { createClient } from '@supabase/supabase-js'
 import lgtv2 from 'lgtv2'
 import { RouterOSAPI } from 'node-routeros'
 
+
+
 const sh = promisify(exec)
 const sb = createClient(
   process.env.SUPABASE_URL, 
@@ -52,26 +54,16 @@ async function metodo1(c, lock) {
   }
 }
 
-/* ---------- MÉTODO 2: corte de red (MikroTik) ---------- */
-const ros = async (fn) => {
-  const c = new RouterOSAPI({ host: process.env.ROS_HOST, user: process.env.ROS_USER, password: process.env.ROS_PASS })
-  await c.connect()
-  try { return await fn(c) } finally { c.close() }
+// Reemplaza tu función accion por esta versión simplificada de prueba:
+const accion = async (c, lock) => {
+  try {
+    console.log(`[${lock ? 'BLOQUEO' : 'LIBERAR'}] Ejecutando en ${c.nombre}...`)
+    const res = await metodo1(c, lock)
+    console.log(`[EXITO] ${c.nombre}:`, res)
+  } catch (err) {
+    console.error(`[ERROR ADB] ${c.nombre}:`, err.message || err)
+  }
 }
-const LIST = 'consolas_bloqueadas'
-async function metodo2(c, lock) {
-  if (!process.env.ROS_HOST || !c.ip_consola) return
-  if (lock) return ros((r) => r.write('/ip/firewall/address-list/add', [`=list=${LIST}`, `=address=${c.ip_consola}`, '=comment=tr1']))
-  return ros(async (r) => {
-    const rows = await r.write('/ip/firewall/address-list/print', [`?list=${LIST}`, `?address=${c.ip_consola}`])
-    for (const x of rows) await r.write('/ip/firewall/address-list/remove', [`=.id=${x['.id']}`])
-  })
-}
-
-const accion = (c, lock) =>
-  Promise.allSettled([metodo1(c, lock), metodo2(c, lock)]).then((r) =>
-    console.log(`[${lock ? 'BLOQUEO' : 'LIBERAR'}] ${c.nombre}`, r.map((x) => x.status).join('/')))
-
 /* ---------- ESCUCHA EN TIEMPO REAL ---------- */
 const prev = new Map()
 const { data: inicial } = await sb.from('consolas').select('id,estado')
