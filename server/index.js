@@ -20,6 +20,30 @@ const TV = {
   7: { driver: 'android' }, 8: { driver: 'android' },
 }
 
+supabase
+  .channel('nodo-local-cambios')
+  .on(
+    'postgres_changes',
+    { event: 'UPDATE', schema: 'public', table: 'consolas' },
+    async (payload) => {
+      const consola = payload.new;
+      const consolaAnterior = payload.old;
+
+      // 1. Cuando se le asigna tiempo o inicia (pasa a 'ocupada') -> Va al HDMI de la Play
+      if (consola.estado === 'ocupada' && consolaAnterior.estado !== 'ocupada') {
+        console.log(`[ACTIVADA] Consola ${consola.nombre} en marcha. Cambiando TV (${consola.ip_tv}) al HDMI del Play...`);
+        await cambiarTvAConsole(consola.ip_tv); // Tu función para poner el HDMI de la consola
+      }
+
+      // 2. Cuando se libera / va a caja (pasa a 'disponible') -> Vuelve a HDMI 1 / pantalla normal
+      if (consola.estado === 'disponible' && consolaAnterior.estado !== 'disponible') {
+        console.log(`[A CAJA] Consola ${consola.nombre} liberada. Devolviendo TV (${consola.ip_tv}) a HDMI 1...`);
+        await cambiarTvAHdmi1(consola.ip_tv); // Tu función para poner HDMI 1
+      }
+    }
+  )
+  .subscribe();
+  
 /* ---------- MÉTODO 1: comando a la TV (Android / ADB) ---------- */
 async function metodo1(c, lock) {
   const cfg = TV[c.id] || { driver: 'none' }
