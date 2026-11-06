@@ -8,7 +8,10 @@ import lgtv2 from 'lgtv2'
 import { RouterOSAPI } from 'node-routeros'
 
 const sh = promisify(exec)
-const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY)
+const sb = createClient(
+  process.env.SUPABASE_URL, 
+  process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY
+)
 const KEYS_FILE = './lg-keys.json'
 const keys = fs.existsSync(KEYS_FILE) ? JSON.parse(fs.readFileSync(KEYS_FILE)) : {}
 
