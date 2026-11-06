@@ -1,0 +1,10 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-carbon font-body uppercase tracking-wide text-zinc-200 antialiased;
+  background-image: repeating-linear-gradient(0deg, rgba(255,255,255,.015) 0 1px, transparent 1px 3px);
+}
+.cut { clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px)); }
+.hazard { background-image: repeating-linear-gradient(-45deg, #FFE600 0 20px, #0B0C10 20px 40px); background-size: 80px 80px; }
