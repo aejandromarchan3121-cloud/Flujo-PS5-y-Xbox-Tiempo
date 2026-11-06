@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { Gamepad2, TriangleAlert } from 'lucide-react'
 import { sb } from '../lib/supabase'
-import { useNow, derive, fmt } from '../lib/tiempo'
+import { useNow, derive, fmt } from '../lib/tiempo  '
 
 export default function ClientScreen() {
   const { id } = useParams()

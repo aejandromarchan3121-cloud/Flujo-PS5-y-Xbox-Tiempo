@@ -1,6 +1,6 @@
 'use client'
 import { Gamepad2, Wifi, Infinity as Open, Square, BadgeDollarSign, Timer } from 'lucide-react'
-import { derive, fmt } from '@/lib/tiempo'
+import { derive, fmt } from '../lib/tiempo'
 
 const ESTILO = {
   libre:   { box: 'border-cyan-400/70 shadow-[0_0_24px_-8px_#22d3ee]', txt: 'text-cyan-300', tag: 'DISPONIBLE' },

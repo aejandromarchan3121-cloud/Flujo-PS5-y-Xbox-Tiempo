@@ -1,9 +1,9 @@
 'use client'
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import { Radio, Clock, Wallet, Server } from 'lucide-react'
-import { sb } from '@/lib/supabase'
-import { useNow } from '@/lib/tiempo'
-import ConsoleCard from './ConsoleCard'
+import { sb } from '../lib/supabase'
+import { useNow } from '../lib/tiempo'
+import ConsoleCard from '../components/ConsoleCard'
 import MusicPlayer from './MusicPlayer'
 
 const upd = (id, patch) => sb.from('consolas').update(patch).eq('id', id)
