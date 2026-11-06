@@ -1,6 +1,6 @@
-// server/index.js
-import 'dotenv/config'
-import fs from 'node:fs'
+import dotenv from 'dotenv'
+import path from 'node:path'
+dotenv.config({ path: path.resolve(process.cwd(), '.env') })
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
 import { createClient } from '@supabase/supabase-js'
