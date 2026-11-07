@@ -1,10 +1,11 @@
 'use client'
 import { useEffect, useMemo, useState, useCallback } from 'react'
-import { Radio, Clock, Wallet, Server, ShieldAlert } from 'lucide-react'
+import { Radio, Clock, Wallet, Server, ShieldAlert, Settings } from 'lucide-react'
 import { sb } from '../lib/supabase'
 import { useNow } from '../lib/tiempo'
 import ConsoleCard from '../components/ConsoleCard'
 import MusicPlayer from './MusicPlayer'
+import Modal from '../components/Modal' // <--- Importamos tu nuevo modal
 
 const upd = (id, patch) => sb.from('consolas').update(patch).eq('id', id)
 
@@ -16,6 +17,11 @@ export default function AdminDashboard() {
   const [latido, setLatido] = useState(null)
   const [total, setTotal] = useState(0)
   const [errorMsg, setErrorMsg] = useState(null)
+
+  // Estados para el Modal de Tarifa
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [consolaSeleccionada, setConsolaSeleccionada] = useState(null)
+  const [nuevaTarifa, setNuevaTarifa] = useState('')
 
   const cargarTotal = useCallback(async () => {
     try {
@@ -103,6 +109,29 @@ export default function AdminDashboard() {
     cargarTotal()
   })
 
+  // Funciones del Modal de Tarifa
+  const abrirModalTarifa = (c) => {
+    setConsolaSeleccionada(c)
+    setNuevaTarifa(c.tarifa_hora || 0)
+    setIsModalOpen(true)
+  }
+
+  const guardarTarifa = async () => {
+    if (!consolaSeleccionada) return
+    await handleAction('guardarTarifa', async () => {
+      const { error } = await sb
+        .from('consolas')
+        .update({ tarifa_hora: Number(nuevaTarifa) })
+        .eq('id', consolaSeleccionada.id)
+      
+      if (error) throw error
+
+      // Actualizar estado local para reflejarlo de inmediato sin recargar
+      setConsolas(cs => cs.map(item => item.id === consolaSeleccionada.id ? { ...item, tarifa_hora: Number(nuevaTarifa) } : item))
+      setIsModalOpen(false)
+    })
+  }
+
   const nodoOk = latido && now - latido < 15000
   const reloj = useMemo(() => new Date(now), [now])
 
@@ -118,7 +147,7 @@ export default function AdminDashboard() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-zinc-950 via-zinc-900 to-black text-zinc-100 selection:bg-neon selection:text-black">
       
-      {/* Alerta flotante de errores si ocurren */}
+      {/* Alerta flotante de errores */}
       {errorMsg && (
         <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-xl border border-red-500/50 bg-red-950/90 px-4 py-3 text-sm font-medium text-red-200 shadow-2xl backdrop-blur-md animate-bounce">
           <ShieldAlert size={18} className="text-red-400" />
@@ -130,7 +159,6 @@ export default function AdminDashboard() {
       <header className="sticky top-0 z-40 border-b border-zinc-800/80 bg-carbon/80 backdrop-blur-xl shadow-xl">
         <div className="mx-auto flex max-w-[1700px] flex-col gap-4 px-4 py-4 md:flex-row md:items-center md:justify-between">
           
-          {/* Título y Estado de Red */}
           <div className="flex flex-col gap-2">
             <h1 className="font-display text-2xl font-black tracking-tight text-neon drop-shadow-[0_0_15px_rgba(255,230,0,0.3)] sm:text-3xl">
               TR1 <span className="text-zinc-500">//</span> CONTROL DE SALA
@@ -141,12 +169,10 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* Reproductor de Música central */}
           <div className="flex-1 max-w-md w-full md:mx-4">
             <MusicPlayer />
           </div>
 
-          {/* Panel de Caja y Reloj */}
           <div className="flex items-center gap-3 self-end md:self-auto">
             <div className="rounded-xl border border-neon/30 bg-industrial/60 px-4 py-2 text-right backdrop-blur-sm shadow-inner">
               <p className="flex items-center justify-end gap-1.5 text-[10px] font-semibold tracking-wider text-zinc-400">
@@ -181,13 +207,59 @@ export default function AdminDashboard() {
         ) : (
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {consolas.map((c) => (
-              <div key={c.id} className="transition-transform duration-200 hover:-translate-y-1">
+              <div key={c.id} className="relative group transition-transform duration-200 hover:-translate-y-1">
+                {/* Botón flotante rápido para configurar tarifa en cada tarjeta */}
+                <button
+                  onClick={() => abrirModalTarifa(c)}
+                  className="absolute top-3 right-3 z-20 rounded-lg bg-zinc-900/80 border border-zinc-700/60 p-1.5 text-zinc-400 hover:text-neon hover:border-neon transition-colors shadow-md backdrop-blur-sm"
+                  title="Editar Tarifa de Hora"
+                >
+                  <Settings size={14} />
+                </button>
+
                 <ConsoleCard c={c} now={now} onAdd={onAdd} onOpen={onOpen} onFinish={onFinish} onRelease={onRelease} />
               </div>
             ))}
           </div>
         )}
       </section>
+
+      {/* Modal Independiente para Editar Tarifas */}
+      <Modal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        title={`Configurar Tarifa — ${consolaSeleccionada?.nombre || ''}`}
+      >
+        <div className="flex flex-col gap-4">
+          <p className="text-xs text-zinc-400">
+            Modifica la tarifa por hora (COP) asignada a esta consola. El cálculo de cobro se actualizará de inmediato.
+          </p>
+          <div>
+            <label className="text-xs font-semibold text-zinc-300 mb-1.5 block">Tarifa por Hora (COP)</label>
+            <input 
+              type="number"
+              value={nuevaTarifa}
+              onChange={(e) => setNuevaTarifa(e.target.value)}
+              className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-white font-display text-lg focus:border-neon focus:outline-none transition-colors"
+              placeholder="Ej: 6000 o 12000"
+            />
+          </div>
+          <div className="flex justify-end gap-3 mt-4">
+            <button 
+              onClick={() => setIsModalOpen(false)}
+              className="rounded-xl px-4 py-2 text-sm text-zinc-400 hover:bg-zinc-800 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button 
+              onClick={guardarTarifa}
+              className="rounded-xl bg-neon px-5 py-2 text-sm font-bold text-black hover:bg-neon/90 shadow-[0_0_15px_rgba(255,230,0,0.3)] transition-all"
+            >
+              Guardar Tarifa
+            </button>
+          </div>
+        </div>
+      </Modal>
 
     </main>
   )
