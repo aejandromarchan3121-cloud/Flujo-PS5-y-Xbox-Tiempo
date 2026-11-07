@@ -35,10 +35,10 @@ async function controlarTv(c, estadoActual) {
     
     // Si la consola pasa a 'ocupada' (le diste 15m/30m) -> Forzamos el cambio al HDMI 2
     if (estadoActual === 'ocupada') {
-      console.log(`[HDMI 2] Enviando comando de sintonización a Aiwa ${c.ip_tv}...`)
+      console.log(`[HDMI 2] Ajustando navegación en Aiwa ${c.ip_tv}...`)
       
-      // Probamos abriendo el selector de entradas general de Google TV y enviando un OK para seleccionar
-      return sh(`adb -s ${dev} shell cmd media_session dispatch KEYCODE_MEDIA_PLAY && adb -s ${dev} shell input keyevent 178`)
+      // Abre fuentes (178), baja dos veces (20, 20) y presiona OK (66)
+      return sh(`adb -s ${dev} shell input keyevent 178 && adb -s ${dev} shell input keyevent 20 && adb -s ${dev} shell input keyevent 20 && adb -s ${dev} shell input keyevent 66`)
     } 
     
     // Si pasa a 'disponible' o 'finalizado' -> Abre la URL web de la cartelera
