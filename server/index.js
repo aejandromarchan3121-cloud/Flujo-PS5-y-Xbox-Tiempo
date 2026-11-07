@@ -33,18 +33,19 @@ async function controlarTv(c, estadoActual) {
       console.warn(`[ADB] No se pudo conectar a ${dev}:`, e.message)
     }
     
-    // Si la consola pasa a 'ocupada' (le diste 15m/30m) -> Cambia al HDMI 2
+    // Si la consola pasa a 'ocupada' (le diste 15m/30m) -> Forzamos el cambio al HDMI 2
     if (estadoActual === 'ocupada') {
-      console.log(`[HDMI 2] Cambiando TV ${c.ip_tv} al puerto de la consola...`)
-      return sh(`adb -s ${dev} shell input keyevent 244`)
+      console.log(`[HDMI 2] Enviando comando de sintonización a Aiwa ${c.ip_tv}...`)
+      
+      // Probamos abriendo el selector de entradas general de Google TV y enviando un OK para seleccionar
+      return sh(`adb -s ${dev} shell cmd media_session dispatch KEYCODE_MEDIA_PLAY && adb -s ${dev} shell input keyevent 178`)
     } 
     
-    // Si pasa a 'disponible' o 'finalizado' (se acabo el tiempo / a caja) -> Abre la URL web
-  if (estadoActual === 'ocupada') {
-  console.log(`[HDMI 2] Simulando control remoto en Aiwa ${c.ip_tv}...`)
-  // 178 abre el menú de fuentes, 20 baja en el menú, 66 presiona OK
-  return sh(`adb -s ${dev} shell input keyevent 178 && adb -s ${dev} shell input keyevent 20 && adb -s ${dev} shell input keyevent 66`)
-}
+    // Si pasa a 'disponible' o 'finalizado' -> Abre la URL web de la cartelera
+    if (estadoActual === 'disponible' || estadoActual === 'finalizado') {
+      console.log(`[URL WEB] Abriendo cartelera en TV ${c.ip_tv}...`)
+      return sh(`adb -s ${dev} shell am start -a android.intent.action.VIEW -d "${url}"`)
+    }
   }
 }
 
