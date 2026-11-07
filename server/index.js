@@ -36,8 +36,8 @@ async function controlarTv(c, activar) {
     // Si activar es true (ocupada/tiempo añadido) -> Abre la vista del juego en la TV
     // Si activar es false (finalizado/disponible) -> Vuelve a HDMI 1 (Keyevent 243)
     return activar
-      ? sh(`adb -s ${dev} shell am start -a android.intent.action.VIEW -d "${url}"`)
-      : sh(`adb -s ${dev} shell input keyevent 243`)
+  ? sh(`adb -s ${dev} shell am start -a android.intent.action.VIEW -d "${url}"`)
+  : sh(`adb -s ${dev} shell input keyevent 178`) // 178 abre el menú de fuentes (TV_INPUT) en muchos Android TV
   }
 }
 
