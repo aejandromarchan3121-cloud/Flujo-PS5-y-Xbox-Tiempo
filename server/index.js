@@ -12,7 +12,7 @@ const sb = createClient(
   process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY
 )
 
-// Todos configurados como Android
+// Configuración de drivers por consola
 const TV = {
   1: { driver: 'android' }, 2: { driver: 'android' },
   3: { driver: 'android' }, 4: { driver: 'android' },
@@ -20,32 +20,8 @@ const TV = {
   7: { driver: 'android' }, 8: { driver: 'android' },
 }
 
-supabase
-  .channel('nodo-local-cambios')
-  .on(
-    'postgres_changes',
-    { event: 'UPDATE', schema: 'public', table: 'consolas' },
-    async (payload) => {
-      const consola = payload.new;
-      const consolaAnterior = payload.old;
-
-      // 1. Cuando se le asigna tiempo o inicia (pasa a 'ocupada') -> Va al HDMI de la Play
-      if (consola.estado === 'ocupada' && consolaAnterior.estado !== 'ocupada') {
-        console.log(`[ACTIVADA] Consola ${consola.nombre} en marcha. Cambiando TV (${consola.ip_tv}) al HDMI del Play...`);
-        await cambiarTvAConsole(consola.ip_tv); // Tu función para poner el HDMI de la consola
-      }
-
-      // 2. Cuando se libera / va a caja (pasa a 'disponible') -> Vuelve a HDMI 1 / pantalla normal
-      if (consola.estado === 'disponible' && consolaAnterior.estado !== 'disponible') {
-        console.log(`[A CAJA] Consola ${consola.nombre} liberada. Devolviendo TV (${consola.ip_tv}) a HDMI 1...`);
-        await cambiarTvAHdmi1(consola.ip_tv); // Tu función para poner HDMI 1
-      }
-    }
-  )
-  .subscribe();
-  
-/* ---------- MÉTODO 1: comando a la TV (Android / ADB) ---------- */
-async function metodo1(c, lock) {
+/* ---------- CONTROL DE ADB / TV ---------- */
+async function controlarTv(c, activar) {
   const cfg = TV[c.id] || { driver: 'none' }
   const url = `${process.env.CLIENT_URL}/pantalla/${c.id}`
   
@@ -57,17 +33,20 @@ async function metodo1(c, lock) {
       console.warn(`[ADB] No se pudo conectar a ${dev}:`, e.message)
     }
     
-    return lock
+    // Si activar es true (ocupada/tiempo añadido) -> Abre la vista del juego en la TV
+    // Si activar es false (finalizado/disponible) -> Vuelve a HDMI 1 (Keyevent 243)
+    return activar
       ? sh(`adb -s ${dev} shell am start -a android.intent.action.VIEW -d "${url}"`)
-      : sh(`adb -s ${dev} shell input keyevent 243`) // KEYCODE_TV_INPUT_HDMI_1 o simulación de retorno
+      : sh(`adb -s ${dev} shell input keyevent 243`)
   }
 }
 
-// Acción controlada para el servidor
-const accion = async (c, lock) => {
+// Acción unificada para el servidor local
+const accion = async (c, activar) => {
   try {
-    console.log(`[${lock ? 'BLOQUEO' : 'LIBERAR'}] Ejecutando en ${c.nombre || 'Consola #' + c.id}...`)
-    const res = await metodo1(c, lock)
+    const modo = activar ? 'ACTIVAR (HDMI Play)' : 'LIBERAR (HDMI 1)'
+    console.log(`[${modo}] Ejecutando en ${c.nombre || 'Consola #' + c.id}...`)
+    const res = await controlarTv(c, activar)
     console.log(`[EXITO] ${c.nombre || 'Consola #' + c.id}:`, res ? (res.stdout || 'Comando enviado') : 'Comando enviado')
   } catch (err) {
     console.error(`[ERROR ACCION] ${c.nombre || 'Consola #' + c.id}:`, err.message || err)
@@ -76,7 +55,7 @@ const accion = async (c, lock) => {
 
 /* ---------- ESCUCHA EN TIEMPO REAL ---------- */
 const prev = new Map()
-const { data: inicial } = await sb.from('consolas').select('id,estado')
+const { data: inicial } = await sb.from('consolas').select('id,estado,nombre,ip_tv')
 if (inicial) {
   inicial.forEach((c) => prev.set(c.id, c.estado))
 }
@@ -88,13 +67,13 @@ sb.channel('consolas-watch')
 
     console.log(`[DB UPDATE] Consola ${c.id} (${c.nombre}) cambió de '${was}' a '${c.estado}'`)
 
-    // Si pasa a finalizado y antes no lo estaba
-    if (c.estado === 'finalizado' && was !== 'finalizado') {
+    // 1. Cuando pasa a 'ocupada' (ya sea desde disponible o tras sumar tiempo) -> Va al Play
+    if (c.estado === 'ocupada' && was !== 'ocupada') {
       accion(c, true)
     }
     
-    // Si estaba finalizado y ahora pasa a ocupada (ej. "+15 min")
-    if (was === 'finalizado' && c.estado === 'ocupada') {
+    // 2. Cuando pasa a 'disponible' o 'finalizado' -> Vuelve a HDMI 1
+    if ((c.estado === 'disponible' || c.estado === 'finalizado') && was === 'ocupada') {
       accion(c, false)
     }
   })
@@ -119,6 +98,7 @@ setInterval(async () => {
       
       if (ahora >= fin) {
         console.log(`[TIEMPO AGOTADO] La consola ${c.nombre || c.id} cumplió su tiempo. Actualizando a finalizado...`)
+        // Actualizamos a finalizado; el evento postgres_changes se encargará de mandar la orden de liberar la TV
         await sb.from('consolas').update({ estado: 'finalizado' }).eq('id', c.id).eq('estado', 'ocupada')
       }
     }
