@@ -20,6 +20,9 @@ const TV = {
   7: { driver: 'android' }, 8: { driver: 'android' },
 }
 
+// Mapa para recordar el último estado enviado a cada TV y evitar duplicados
+const estadoTvEnviado = new Map();
+
 /* ---------- CONTROL DE ADB / TV ---------- */
 async function controlarTv(c, estadoActual) {
   const cfg = TV[c.id] || { driver: 'none' }
@@ -33,17 +36,23 @@ async function controlarTv(c, estadoActual) {
       console.warn(`[ADB] No se pudo conectar a ${dev}:`, e.message)
     }
     
-    // Si la consola pasa a 'ocupada' (le diste 15m/30m) -> Forzamos el cambio al HDMI 2
+    // Si la TV ya recibió la orden para este estado exacto, no la repetimos
+    if (estadoTvEnviado.get(c.id) === estadoActual) {
+      console.log(`[IGNORADO] La TV de ${c.nombre} ya procesó el estado '${estadoActual}'.`)
+      return
+    }
+    
+    // Si pasa a 'ocupada' (le diste 15m/30m) -> Cambia al HDMI 2
     if (estadoActual === 'ocupada') {
       console.log(`[HDMI 2] Ajustando navegación en Aiwa ${c.ip_tv}...`)
-      
-      // Abre fuentes (178), baja dos veces (20, 20) y presiona OK (66)
+      estadoTvEnviado.set(c.id, estadoActual) // Guardamos que ya se envió
       return sh(`adb -s ${dev} shell input keyevent 178 && adb -s ${dev} shell input keyevent 20 && adb -s ${dev} shell input keyevent 20 && adb -s ${dev} shell input keyevent 66`)
     } 
     
-    // Si pasa a 'disponible' o 'finalizado' -> Abre la URL web de la cartelera
+    // Si pasa a 'disponible' o 'finalizado' -> Abre la URL web
     if (estadoActual === 'disponible' || estadoActual === 'finalizado') {
       console.log(`[URL WEB] Abriendo cartelera en TV ${c.ip_tv}...`)
+      estadoTvEnviado.set(c.id, estadoActual) // Guardamos que ya se envió
       return sh(`adb -s ${dev} shell am start -a android.intent.action.VIEW -d "${url}"`)
     }
   }
