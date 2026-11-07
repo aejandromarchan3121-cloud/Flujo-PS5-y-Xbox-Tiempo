@@ -33,11 +33,13 @@ async function controlarTv(c, activar) {
       console.warn(`[ADB] No se pudo conectar a ${dev}:`, e.message)
     }
     
-    // Si activar es true (le diste 15m/30m -> Ocupada) -> Pasa al HDMI de la consola (Ej: Input HDMI o Home)
-    // Si activar es false (Se acabó el tiempo o se liberó -> Disponible) -> Abre la URL en la pantalla
-    return activar
-      ? sh(`adb -s ${dev} shell input keyevent 178`) // O el comando HDMI que use tu TV para sintonizar el juego
-      : sh(`adb -s ${dev} shell am start -a android.intent.action.VIEW -d "${url}"`)
+    // Si activar es true (le diste 15m/30m -> Ocupada) -> Cambia al HDMI 2 de la consola
+    // Si activar es false (Se acabó el tiempo o se liberó -> Disponible/Finalizado) -> Abre la URL web
+    if (activar) {
+      return sh(`adb -s ${dev} shell input keyevent 244`)
+    } else {
+      return sh(`adb -s ${dev} shell am start -a android.intent.action.VIEW -d "${url}"`)
+    }
   }
 }
 
