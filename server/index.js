@@ -21,7 +21,7 @@ const TV = {
 }
 
 /* ---------- CONTROL DE ADB / TV ---------- */
-async function controlarTv(c, activar) {
+async function controlarTv(c, estadoActual) {
   const cfg = TV[c.id] || { driver: 'none' }
   const url = `${process.env.CLIENT_URL}/pantalla/${c.id}`
   
@@ -33,13 +33,18 @@ async function controlarTv(c, activar) {
       console.warn(`[ADB] No se pudo conectar a ${dev}:`, e.message)
     }
     
-    // Si activar es true (le diste 15m/30m -> Ocupada) -> Cambia al HDMI 2 de la consola
-    // Si activar es false (Se acabó el tiempo o se liberó -> Disponible/Finalizado) -> Abre la URL web
-    if (activar) {
+    // Si la consola pasa a 'ocupada' (le diste 15m/30m) -> Cambia al HDMI 2
+    if (estadoActual === 'ocupada') {
+      console.log(`[HDMI 2] Cambiando TV ${c.ip_tv} al puerto de la consola...`)
       return sh(`adb -s ${dev} shell input keyevent 244`)
-    } else {
-      return sh(`adb -s ${dev} shell am start -a android.intent.action.VIEW -d "${url}"`)
-    }
+    } 
+    
+    // Si pasa a 'disponible' o 'finalizado' (se acabo el tiempo / a caja) -> Abre la URL web
+  if (estadoActual === 'ocupada') {
+  console.log(`[HDMI 2] Simulando control remoto en Aiwa ${c.ip_tv}...`)
+  // 178 abre el menú de fuentes, 20 baja en el menú, 66 presiona OK
+  return sh(`adb -s ${dev} shell input keyevent 178 && adb -s ${dev} shell input keyevent 20 && adb -s ${dev} shell input keyevent 66`)
+}
   }
 }
 
@@ -63,20 +68,15 @@ if (inicial) {
 }
 
 sb.channel('consolas-watch')
-  .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'consolas' }, ({ new: c }) => {
+  .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'consolas' }, async ({ new: c }) => {
     const was = prev.get(c.id)
     prev.set(c.id, c.estado)
 
     console.log(`[DB UPDATE] Consola ${c.id} (${c.nombre}) cambió de '${was}' a '${c.estado}'`)
 
-    // 1. Cuando pasa a 'ocupada' (ya sea desde disponible o tras sumar tiempo) -> Va al Play
-    if (c.estado === 'ocupada' && was !== 'ocupada') {
-      accion(c, true)
-    }
-    
-    // 2. Cuando pasa a 'disponible' o 'finalizado' -> Vuelve a HDMI 1
-    if ((c.estado === 'disponible' || c.estado === 'finalizado') && was === 'ocupada') {
-      accion(c, false)
+    // Si cambia de estado, ejecutamos el control de la TV mandándole el estado actual
+    if (was !== c.estado) {
+      await controlarTv(c, c.estado)
     }
   })
   .subscribe((s) => console.log('Realtime Supabase:', s))
