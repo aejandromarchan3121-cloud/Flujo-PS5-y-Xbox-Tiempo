@@ -1,9 +1,9 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
-const { spawn, exec } = require('child_process');
+const { exec } = require('child_process');
 const path = require('path');
+const pm2 = require('pm2');
 
 let mainWindow;
-let serverProcess = null;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -16,64 +16,58 @@ function createWindow() {
     }
   });
 
-  // Carga tu interfaz desplegada en Vercel (o localhost:3000 si estás en pruebas)
+  // Carga tu interfaz desplegada en Vercel
   mainWindow.loadURL('https://flujo-ps5-y-xbox-tiempo.vercel.app/');
 
-  // Iniciar el backend del servidor al abrir la app
-  startServerBackend();
+  // Iniciar el backend del servidor usando PM2 al abrir la app
+  startServerWithPM2();
 
   mainWindow.on('closed', () => {
     mainWindow = null;
-    // Detener el proceso del servidor si se cierra la app
-    if (serverProcess) {
-      serverProcess.kill();
-    }
+    // Nota: PM2 se queda corriendo en segundo plano para mantener el servicio activo, 
+    // pero si prefieres apagarlo al cerrar la app, puedes descomentar pm2.disconnect() o pm2.stop().
   });
 }
 
-// --- FUNCIÓN PARA EJECUTAR INDEX.JS Y ENVIAR LOGS ---
-function startServerBackend() {
-  // Ruta relativa hacia la carpeta server/index.js
-  const serverPath = path.join(__dirname, '..', 'server', 'index.js');
+// --- FUNCIÓN PARA INICIAR EL SERVIDOR MEDIANTE PM2 ---
+function startServerWithPM2() {
+  const serverScriptPath = path.join(__dirname, '..', 'server', 'index.js');
+  const serverCwd = path.join(__dirname, '..', 'server');
 
-  console.log(`[ELECTRON] Iniciando servidor desde: ${serverPath}`);
+  console.log(`[PM2] Conectando y levantando servidor desde: ${serverScriptPath}`);
 
-  // Inicia el proceso de Node.js para server/index.js
-  serverProcess = spawn('node', [serverPath], {
-    cwd: path.join(__dirname, '..', 'server'),
-    shell: true
-  });
-
-  // Capturar salida estándar (console.log del index.js)
-  serverProcess.stdout.on('data', (data) => {
-    const logMsg = data.toString();
-    console.log(`[SERVER LOG]: ${logMsg}`);
-    
-    // Enviar el log a la ventana del frontend si está lista
-    if (mainWindow && mainWindow.webContents) {
-      mainWindow.webContents.send('server-log', logMsg);
+  pm2.connect((err) => {
+    if (err) {
+      console.error('[PM2 ERROR] No se pudo conectar a PM2:', err);
+      return;
     }
-  });
 
-  // Capturar errores (console.error del index.js)
-  serverProcess.stderr.on('data', (data) => {
-    const errorMsg = data.toString();
-    console.error(`[SERVER ERROR]: ${errorMsg}`);
-    
-    if (mainWindow && mainWindow.webContents) {
-      mainWindow.webContents.send('server-log-error', errorMsg);
-    }
-  });
-
-  serverProcess.on('close', (code) => {
-    console.log(`[SERVER] El proceso del servidor finalizó con código: ${code}`);
+    pm2.start({
+      script: serverScriptPath,
+      name: 'tr1-backend-server',
+      cwd: serverCwd,
+      autorestart: true,
+      watch: false,
+      max_memory_restart: '300M',
+      env: {
+        NODE_ENV: 'production',
+        PORT: 3000
+      }
+    }, (startErr, apps) => {
+      if (startErr) {
+        console.error('[PM2 ERROR] Error al iniciar la aplicación con PM2:', startErr);
+      } else {
+        console.log('[PM2 SUCCESS] Servidor iniciado correctamente bajo PM2:', apps);
+      }
+    });
   });
 }
 
 app.whenReady().then(createWindow);
 
 app.on('window-all-closed', () => {
-  if (serverProcess) serverProcess.kill();
+  // Opcional: Desconectar PM2 (el proceso de Node seguirá corriendo en background por PM2)
+  pm2.disconnect();
   if (process.platform !== 'darwin') app.quit();
 });
 
