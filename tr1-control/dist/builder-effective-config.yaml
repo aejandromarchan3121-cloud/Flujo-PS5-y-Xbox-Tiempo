@@ -1,0 +1,10 @@
+directories:
+  output: dist
+  buildResources: build
+appId: com.control.gaming
+productName: ControlGamingApp
+win:
+  target: nsis
+  requestedExecutionLevel: requireAdministrator
+files: []
+electronVersion: 28.3.3

@@ -1,11 +1,54 @@
 'use client'
 import { useEffect, useMemo, useState, useCallback } from 'react'
-import { Radio, Clock, Wallet, Server, ShieldAlert, Settings } from 'lucide-react'
+import { Radio, Clock, Wallet, Server, ShieldAlert, Settings, ShoppingCart, BarChart3 } from 'lucide-react'
 import { sb } from '../lib/supabase'
 import { useNow } from '../lib/tiempo'
 import ConsoleCard from '../components/ConsoleCard'
 import MusicPlayer from './MusicPlayer'
-import Modal from '../components/Modal' // <--- Importamos tu nuevo modal
+import Modal from '../components/Modal'
+import ProductSalesModule from './components/ProductSalesModule'
+import FinancialSummary from './components/FinancialSummary'
+import React, { useEffect, useState } from 'react';
+
+export default function ServerLogsViewer() {
+  const [logs, setLogs] = useState([]);
+
+  useEffect(() => {
+    // Verificar si estamos dentro del ejecutable de Electron
+    if (window.require) {
+      const { ipcRenderer } = window.require('electron');
+
+      const handleLog = (event, message) => {
+        setLogs(prevLogs => [...prevLogs.slice(-49), `[LOG]: ${message}`]); // Guarda los últimos 50 logs
+      };
+
+      const handleError = (event, message) => {
+        setLogs(prevLogs => [...prevLogs.slice(-49), `[ERROR]: ${message}`]);
+      };
+
+      ipcRenderer.on('server-log', handleLog);
+      ipcRenderer.on('server-log-error', handleError);
+
+      return () => {
+        ipcRenderer.removeListener('server-log', handleLog);
+        ipcRenderer.removeListener('server-log-error', handleError);
+      };
+    }
+  }, []);
+
+  return (
+    <div className="bg-black/90 border border-zinc-800 rounded-xl p-4 font-mono text-xs text-green-400 h-64 overflow-y-auto">
+      <p className="text-zinc-500 font-bold mb-2">// LOGS EN TIEMPO REAL (SERVER INDEX.JS)</p>
+      {logs.length === 0 ? (
+        <p className="text-zinc-600">Esperando salida del servidor...</p>
+      ) : (
+        logs.map((log, index) => (
+          <div key={index} className="whitespace-pre-wrap py-0.5">{log}</div>
+        ))
+      )}
+    </div>
+  );
+}
 
 const upd = (id, patch) => sb.from('consolas').update(patch).eq('id', id)
 
@@ -22,6 +65,17 @@ export default function AdminDashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [consolaSeleccionada, setConsolaSeleccionada] = useState(null)
   const [nuevaTarifa, setNuevaTarifa] = useState('')
+
+  // Estados para los nuevos Modales (Productos y Finanzas)
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false)
+  const [isFinanceModalOpen, setIsFinanceModalOpen] = useState(false)
+  const [salesHistory, setSalesHistory] = useState([])
+  const [products, setProducts] = useState([
+    { id: '1', name: 'Agua 600ml', price: 2500, stock: 20 },
+    { id: '2', name: 'Refresco / Soda', price: 4000, stock: 15 },
+    { id: '3', name: 'Snack / Doritos', price: 5000, stock: 10 },
+    { id: '4', name: 'Energizante', price: 7000, stock: 8 }
+  ])
 
   const cargarTotal = useCallback(async () => {
     try {
@@ -126,10 +180,16 @@ export default function AdminDashboard() {
       
       if (error) throw error
 
-      // Actualizar estado local para reflejarlo de inmediato sin recargar
       setConsolas(cs => cs.map(item => item.id === consolaSeleccionada.id ? { ...item, tarifa_hora: Number(nuevaTarifa) } : item))
       setIsModalOpen(false)
     })
+  }
+
+  // Registrar venta de producto y sumar al total diario
+  const handleRegisterSale = async (newSale) => {
+    setSalesHistory([newSale, ...salesHistory])
+    // Opcional: si creas una tabla 'historial_ventas' en Supabase, puedes hacer el insert aquí.
+    setTotal(prev => prev + newSale.total)
   }
 
   const nodoOk = latido && now - latido < 15000
@@ -145,7 +205,7 @@ export default function AdminDashboard() {
   )
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-zinc-950 via-zinc-900 to-black text-zinc-100 selection:bg-neon selection:text-black">
+    <main className="min-h-screen bg-gradient-to-br from-zinc-950 via-zinc-900 to-black text-zinc-100 selection:bg-neon selection:text-black pb-12">
       
       {/* Alerta flotante de errores */}
       {errorMsg && (
@@ -173,7 +233,26 @@ export default function AdminDashboard() {
             <MusicPlayer />
           </div>
 
-          <div className="flex items-center gap-3 self-end md:self-auto">
+          <div className="flex items-center gap-3 self-end md:self-auto flex-wrap">
+            {/* Botones de Acceso Rápido a Productos y Finanzas */}
+            <button
+              onClick={() => setIsProductModalOpen(true)}
+              className="flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-950/40 px-3 py-2 text-xs font-bold text-emerald-300 hover:bg-emerald-900/50 transition-colors shadow-sm"
+              title="Vender Productos"
+            >
+              <ShoppingCart size={15} className="text-emerald-400" />
+              <span>Ventas</span>
+            </button>
+
+            <button
+              onClick={() => setIsFinanceModalOpen(true)}
+              className="flex items-center gap-1.5 rounded-xl border border-blue-500/30 bg-blue-950/40 px-3 py-2 text-xs font-bold text-blue-300 hover:bg-blue-900/50 transition-colors shadow-sm"
+              title="Ver Resumen de Ingresos"
+            >
+              <BarChart3 size={15} className="text-blue-400" />
+              <span>Caja</span>
+            </button>
+
             <div className="rounded-xl border border-neon/30 bg-industrial/60 px-4 py-2 text-right backdrop-blur-sm shadow-inner">
               <p className="flex items-center justify-end gap-1.5 text-[10px] font-semibold tracking-wider text-zinc-400">
                 <Wallet size={12} className="text-neon" /> COBRADO HOY
@@ -232,10 +311,10 @@ export default function AdminDashboard() {
       >
         <div className="flex flex-col gap-4">
           <p className="text-xs text-zinc-400">
-            Modifica la tarifa por hora (COP) asignada a esta consola. El cálculo de cobro se actualizará de inmediato.
+            Modifica la tarifa por hora asignada a esta consola. El cálculo de cobro se actualizará de inmediato.
           </p>
           <div>
-            <label className="text-xs font-semibold text-zinc-300 mb-1.5 block">Tarifa por Hora (COP)</label>
+            <label className="text-xs font-semibold text-zinc-300 mb-1.5 block">Tarifa por Hora</label>
             <input 
               type="number"
               value={nuevaTarifa}
@@ -257,6 +336,43 @@ export default function AdminDashboard() {
             >
               Guardar Tarifa
             </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal de Venta de Productos */}
+      <Modal
+        isOpen={isProductModalOpen}
+        onClose={() => setIsProductModalOpen(false)}
+        title="Tienda y Venta de Productos"
+      >
+        <ProductSalesModule products={products} onRegisterSale={handleRegisterSale} />
+      </Modal>
+
+      {/* Modal de Finanzas e Ingresos */}
+      <Modal
+        isOpen={isFinanceModalOpen}
+        onClose={() => setIsFinanceModalOpen(false)}
+        title="Resumen Financiero y Caja"
+      >
+        <div className="flex flex-col gap-4">
+          <FinancialSummary salesHistory={salesHistory} />
+          
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mt-2">Últimos Movimientos de Hoy</h3>
+          <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+            {salesHistory.length === 0 ? (
+              <p className="text-xs text-zinc-500 py-3 text-center">No hay ventas o cobros registrados en esta sesión.</p>
+            ) : (
+              salesHistory.map((sale) => (
+                <div key={sale.id} className="flex justify-between items-center bg-zinc-900 border border-zinc-800 p-3 rounded-xl text-xs">
+                  <div>
+                    <p className="font-semibold text-zinc-200">{sale.itemName}</p>
+                    <p className="text-[10px] text-zinc-400">{new Date(sale.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} (Cant: {sale.quantity})</p>
+                  </div>
+                  <span className="text-emerald-400 font-bold font-display text-sm">+${sale.total.toFixed(2)}</span>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </Modal>
