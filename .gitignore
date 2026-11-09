@@ -8,4 +8,5 @@ build/
 *.log
 .env
 /tr1-control/node_modulesdist/
-/dist
+dist/
+tr1-control/dist/
