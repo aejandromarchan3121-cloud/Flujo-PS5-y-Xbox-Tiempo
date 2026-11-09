@@ -7,3 +7,4 @@ build/
 *.exe
 *.log
 .env
+/tr1-control/node_modules
