@@ -1,92 +1,77 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
-const { exec } = require('child_process');
+const { app, BrowserWindow } = require('electron');
+const { spawn, exec } = require('child_process');
 const path = require('path');
-const pm2 = require('pm2');
 
 let mainWindow;
+let serverProcess = null;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
-    title: "TR1 — Control de Sala",
+    title: "TR1 — Control de Sala & Servidor",
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false
     }
   });
 
-  // Carga tu interfaz desplegada en Vercel
+  // Carga tu plataforma web (o tu entorno local si prefieres)
   mainWindow.loadURL('https://flujo-ps5-y-xbox-tiempo.vercel.app/');
 
-  // Iniciar el backend del servidor usando PM2 al abrir la app
-  startServerWithPM2();
+  // 1. Ejecutar la conexión inicial de ADB a la IP fija
+  conectarAdFija();;
+
+  // 2. Iniciar el servidor backend local (server/index.js) y PM2
+  iniciarBackendYPM2();
 
   mainWindow.on('closed', () => {
     mainWindow = null;
-    // Nota: PM2 se queda corriendo en segundo plano para mantener el servicio activo, 
-    // pero si prefieres apagarlo al cerrar la app, puedes descomentar pm2.disconnect() o pm2.stop().
+    if (serverProcess) serverProcess.kill();
   });
 }
 
-// --- FUNCIÓN PARA INICIAR EL SERVIDOR MEDIANTE PM2 ---
-function startServerWithPM2() {
-  const serverScriptPath = path.join(__dirname, '..', 'server', 'index.js');
-  const serverCwd = path.join(__dirname, '..', 'server');
+// Función para conectar ADB automáticamente
+function conectarAdFija() {
+  const targetIp = "192.168.1.43";
+  console.log(`[ADB] Conectando automáticamente a ${targetIp}:5555...`);
 
-  console.log(`[PM2] Conectando y levantando servidor desde: ${serverScriptPath}`);
-
-  pm2.connect((err) => {
-    if (err) {
-      console.error('[PM2 ERROR] No se pudo conectar a PM2:', err);
-      return;
+  exec(`adb connect ${targetIp}:5555`, (error, stdout, stderr) => {
+    if (error) {
+      console.error(`[ADB ERROR] No se pudo conectar a ${targetIp}:`, stderr || error.message);
+    } else {
+      console.log(`[ADB SUCCESS] ${stdout.trim()}`);
     }
+  });
+}
 
-    pm2.start({
-      script: serverScriptPath,
-      name: 'tr1-backend-server',
-      cwd: serverCwd,
-      autorestart: true,
-      watch: false,
-      max_memory_restart: '300M',
-      env: {
-        NODE_ENV: 'production',
-        PORT: 3000
-      }
-    }, (startErr, apps) => {
-      if (startErr) {
-        console.error('[PM2 ERROR] Error al iniciar la aplicación con PM2:', startErr);
-      } else {
-        console.log('[PM2 SUCCESS] Servidor iniciado correctamente bajo PM2:', apps);
-      }
-    });
+// Función para arrancar el servidor y registrarlo en PM2
+function iniciarBackendYPM2() {
+  const serverPath = path.join(__dirname, '..', 'server', 'index.js');
+  const serverDir = path.join(__dirname, '..', 'server');
+
+  console.log(`[SERVER] Iniciando servidor y PM2 desde: ${serverPath}`);
+
+  // Comando para iniciar PM2 programáticamente con el index.js del server
+  const pm2Command = `pm2 start "${serverPath}" --name "tr1-server" && pm2 save`;
+
+  exec(pm2Command, { cwd: serverDir }, (error, stdout, stderr) => {
+    if (error) {
+      console.warn(`[PM2 WARNING] PM2 global no encontrado o falló el registro, ejecutando con Node directo...`, stderr || error.message);
+      
+      // Fallback: Si PM2 no está instalado globalmente en la PC, arranca con Node directo
+      serverProcess = spawn('node', [serverPath], { cwd: serverDir, shell: true });
+      
+      serverProcess.stdout.on('data', (data) => console.log(`[SERVER LOG]: ${data}`));
+      serverProcess.stderr.on('data', (data) => console.error(`[SERVER ERROR]: ${data}`));
+    } else {
+      console.log(`[PM2 SUCCESS] Proceso registrado y corriendo en PM2:\n${stdout}`);
+    }
   });
 }
 
 app.whenReady().then(createWindow);
 
 app.on('window-all-closed', () => {
-  // Opcional: Desconectar PM2 (el proceso de Node seguirá corriendo en background por PM2)
-  pm2.disconnect();
   if (process.platform !== 'darwin') app.quit();
-});
-
-// --- COMANDOS IPC DIRECTOS PARA ADB Y PM2 ---
-ipcMain.handle('connect-adb', async (event, ipAddress) => {
-  return new Promise((resolve, reject) => {
-    exec(`adb connect ${ipAddress}:5555`, (error, stdout, stderr) => {
-      if (error) return reject(`Error ADB: ${stderr || error.message}`);
-      resolve(stdout);
-    });
-  });
-});
-
-ipcMain.handle('setup-pm2', async (event, appPath, appName) => {
-  return new Promise((resolve, reject) => {
-    const command = `pm2 start "${appPath}" --name "${appName}" && pm2 save`;
-    exec(command, (error, stdout, stderr) => {
-      if (error) return reject(`Error PM2: ${stderr || error.message}`);
-      resolve(stdout);
-    });
-  });
 });

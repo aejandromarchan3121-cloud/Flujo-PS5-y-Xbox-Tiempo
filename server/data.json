@@ -1,0 +1,15 @@
+{
+  "consolas": [
+    {
+      "id": 1,
+      "name": "PS5 - 01",
+      "status": "libre",
+      "startTime": null,
+      "elapsedSeconds": 0,
+      "ratePerHour": 2
+    }
+  ],
+  "products": [],
+  "salesHistory": [],
+  "dailyFinances": {}
+}
