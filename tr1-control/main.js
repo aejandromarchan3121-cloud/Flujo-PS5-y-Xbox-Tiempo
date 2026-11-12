@@ -16,7 +16,8 @@ function createWindow() {
     backgroundColor: '#0B0C10',
     webPreferences: {
       nodeIntegration: true,
-      contextIsolation: false
+      contextIsolation: false,
+      webSecurity: false // <--- IGNORA RESTRICCIONES DE RED LOCAL Y CORS EN ELECTRON
     }
   });
 
