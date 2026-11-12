@@ -86,7 +86,12 @@ export default function AdminDashboard() {
         const date = new Date(item.fecha).toISOString().split('T')[0]
         if (!groupedFinances[date]) {
           groupedFinances[date] = { totalConsoles: 0, totalProducts: 0, totalGeneral: 0 }
-        }
+        }// Ordenar las fechas de la más reciente a la más antigua
+      const sortedFinances = Object.entries(groupedFinances).sort((a, b) => {
+        return new Date(b[0]) - new Date(a[0]);
+      });
+
+      setFinances(Object.fromEntries(sortedFinances));
         
         if (item.tipo === 'consola') {
           groupedFinances[date].totalConsoles += item.monto
@@ -102,9 +107,13 @@ export default function AdminDashboard() {
     }
   }
 
-  const fetchConsolas = async () => {
+ const fetchConsolas = async () => {
     const { data } = await supabase.from('consolas').select('*')
-    if (data) setConsolas(data)
+    if (data) {
+      // Ordenamos estrictamente por ID para que NUNCA cambien de lugar al activarlas
+      const sortedConsolas = data.sort((a, b) => Number(a.id) - Number(b.id))
+      setConsolas(sortedConsolas)
+    }
   }
 
   // --- ACCIONES DE CONSOLAS ---

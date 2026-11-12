@@ -140,7 +140,12 @@ export default function ProductSalesModule({ products, onRegisterSale, salesHist
                 salesHistory.map((item, index) => {
                   const fechaFormatted = item.fecha ? new Date(item.fecha).toLocaleString('es-CO') : 'N/A';
                   const esConsola = item.tipo === 'consola' || item.consola_nombre;
-                  
+                  // Ordenar de más reciente a más antiguo usando la fecha
+const sortedHistory = [...salesHistory].sort((a, b) => {
+  const dateA = new Date(a.fecha || a.vendido_at || a.tiempo_inicio || a.created_at || 0);
+  const dateB = new Date(b.fecha || b.vendido_at || b.tiempo_inicio || b.created_at || 0);
+  return dateB - dateA;
+});
                   return (
                     <tr key={index} className="border-b border-zinc-800/50 hover:bg-zinc-850">
                       <td className="p-3 text-xs text-zinc-400">{fechaFormatted}</td>
