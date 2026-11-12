@@ -5,6 +5,7 @@ import ConsoleCard from '../../components/ConsoleCard'
 import FinancialSummary from '../../components/FinancialSummary'
 import ProductosSalesModule from '../../components/ProductosSalesModule'
 import Modal from '../../components/Modal'
+import SplashScreen from '../../components/SplashScreen' // <--- IMPORTACIÓN AÑADIDA
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -18,6 +19,9 @@ export default function AdminDashboard() {
   const [finances, setFinances] = useState({})
   const [salesHistory, setSalesHistory] = useState([])
   const [now, setNow] = useState(Date.now())
+
+  // Estado para la pantalla de carga inicial
+  const [showSplash, setShowSplash] = useState(true)
 
   // Estado para el modal de agregar producto
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -63,34 +67,32 @@ export default function AdminDashboard() {
     if (data) setConsolas(data)
   }
 
-  // --- ACCIONES DE CONSOLAS ---
+  // --- ACCIONES DE CONSOLAS (Actualizadas con los estados permitidos: 'disponible', 'ocupada', 'finalizado') ---
   const handleAddTime = async (c, mins) => {
-    // Lógica para sumar minutos a la consola
     const currentMins = c.minutos_totales || 0
-    await supabase.from('consolas').update({ minutos_totales: currentMins + mins, estado: 'uso' }).eq('id', c.id)
+    await supabase.from('consolas').update({ minutos_totales: currentMins + mins, estado: 'ocupada' }).eq('id', c.id)
     fetchConsolas()
   }
 
   const handleOpenTime = async (c) => {
-    await supabase.from('consolas').update({ estado: 'uso', tiempo_abierto: true, hora_inicio: new Date().toISOString() }).eq('id', c.id)
+    await supabase.from('consolas').update({ estado: 'ocupada', tiempo_abierto: true, tiempo_inicio: new Date().toISOString() }).eq('id', c.id)
     fetchConsolas()
   }
 
   const handleFinishTime = async (c) => {
-    await supabase.from('consolas').update({ estado: 'agotado' }).eq('id', c.id)
+    await supabase.from('consolas').update({ estado: 'finalizado' }).eq('id', c.id)
     fetchConsolas()
   }
 
   const handleReleaseConsole = async (c) => {
-    await supabase.from('consolas').update({ estado: 'libre', minutos_totales: 0, tiempo_abierto: false, monto_total: 0 }).eq('id', c.id)
+    await supabase.from('consolas').update({ estado: 'disponible', minutos_totales: 0, tiempo_abierto: false, monto_total: 0 }).eq('id', c.id)
     fetchConsolas()
   }
-// --- ACTIVACION DE ANIMACION ---
-const [showSplash, setShowSplash] = useState(true)
 
-if (showSplash) {
-  return <SplashScreen onFinish={() => setShowSplash(false)} />
-}
+  // Pantalla de carga inicial condicional
+  if (showSplash) {
+    return <SplashScreen onFinish={() => setShowSplash(false)} />
+  }
 
   // --- ACCIONES DE PRODUCTOS E INVENTARIO ---
   const handleAddProduct = async (e) => {
