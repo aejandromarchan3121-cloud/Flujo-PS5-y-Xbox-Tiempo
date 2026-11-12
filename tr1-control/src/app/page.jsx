@@ -1,8 +1,6 @@
 'use client'
 import React, { useState, useEffect } from 'react'
 import { createClient } from '@supabase/supabase-js'
-
-// Importa tus componentes modulares si prefieres mantener la separación
 import ConsoleCard from '../../components/ConsoleCard'
 import FinancialSummary from '../../components/FinancialSummary'
 import ProductosSalesModule from '../../components/ProductosSalesModule'
