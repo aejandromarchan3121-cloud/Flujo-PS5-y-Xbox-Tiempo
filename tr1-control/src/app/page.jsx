@@ -50,15 +50,29 @@ export default function AdminDashboard() {
     }
   }, [])
 
-  const fetchLocalData = async () => {
+ const fetchLocalData = async () => {
     try {
-      const res = await fetch('http://localhost:3000/api/state')
-      const data = await res.json()
-      setProducts(data.products || [])
-      setFinances(data.dailyFinances || {})
-      setSalesHistory(data.salesHistory || [])
+      // Si estamos dentro de Electron con nodeIntegration activo:
+      if (window.require) {
+        const { ipcRenderer } = window.require('electron');
+        const result = await ipcRenderer.invoke('get-local-state');
+        
+        if (result.success && result.data) {
+          setProducts(result.data.products || []);
+          setFinances(result.data.dailyFinances || {});
+          setSalesHistory(result.data.salesHistory || []);
+          return;
+        }
+      }
+
+      // Fallback por si se abre en un navegador web convencional por fuera de Electron
+      const res = await fetch('http://localhost:3000/api/state');
+      const data = await res.json();
+      setProducts(data.products || []);
+      setFinances(data.dailyFinances || {});
+      setSalesHistory(data.salesHistory || []);
     } catch (e) {
-      console.log('Servidor local offline o conectando...')
+      console.log('Servidor local offline o conectando...');
     }
   }
 

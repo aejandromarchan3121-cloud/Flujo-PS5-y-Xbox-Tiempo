@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, ipcMain } = require('electron');
 const { spawn, exec } = require('child_process');
 const path = require('path');
 
@@ -35,6 +35,19 @@ function createWindow() {
     if (serverProcess) serverProcess.kill();
   });
 }
+
+// ==========================================
+// PUENTE IPC (Para evitar bloqueos de red local)
+// ==========================================
+ipcMain.handle('get-local-state', async () => {
+  try {
+    const response = await fetch('http://localhost:3000/api/state');
+    const data = await response.json();
+    return { success: true, data };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
 
 // Función para conectar ADB automáticamente
 function conectarAdFija() {
