@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+@theme {
+  --color-carbon: #121212;
+}
+
 body {
   @apply bg-carbon font-body uppercase tracking-wide text-zinc-200 antialiased;
   background-image: repeating-linear-gradient(0deg, rgba(255,255,255,.015) 0 1px, transparent 1px 3px);
