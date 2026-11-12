@@ -85,14 +85,14 @@ export default function AdminDashboard() {
     if (data) setConsolas(data)
   }
 
- // --- ACCIONES DE CONSOLAS ---
+ // --- ACCIONES DE CONSOLAS (BLINDADAS CONTRA ERRORES 400) ---
   const handleAddTime = async (c, mins) => {
     const isStartingNew = c.estado === 'disponible' || c.estado === 'finalizado' || !c.tiempo_inicio
-    const currentMins = isStartingNew ? 0 : (c.minutos_totales || 0)
-    const newMins = currentMins + mins
+    const currentMins = isStartingNew ? 0 : Number(c.minutos_totales || 0)
+    const newMins = currentMins + Number(mins)
 
     const updates = {
-      minutos_totales: newMins,
+      minutos_totales: Number(newMins),
       estado: 'ocupada',
       tiempo_abierto: false,
     }
@@ -101,38 +101,59 @@ export default function AdminDashboard() {
       updates.tiempo_inicio = new Date().toISOString()
     }
 
-    const { error } = await supabase.from('consolas').update(updates).eq('id', c.id)
-    if (!error) fetchConsolas()
+    const { error } = await supabase.from('consolas').update(updates).eq('id', Number(c.id))
+    if (error) {
+      console.error('Error detallado de Supabase:', error.message)
+    } else {
+      fetchConsolas()
+    }
   }
 
   const handleOpenTime = async (c) => {
-    const { error } = await supabase.from('consolas').update({ 
-      estado: 'ocupada', 
-      tiempo_abierto: true, 
+    const updates = {
+      estado: 'ocupada',
+      tiempo_abierto: true,
       minutos_totales: 0,
-      tiempo_inicio: new Date().toISOString() 
-    }).eq('id', c.id)
-    if (!error) fetchConsolas()
+      tiempo_inicio: new Date().toISOString()
+    }
+
+    const { error } = await supabase.from('consolas').update(updates).eq('id', Number(c.id))
+    if (error) {
+      console.error('Error detallado de Supabase:', error.message)
+    } else {
+      fetchConsolas()
+    }
   }
 
   const handleFinishTime = async (c) => {
-    // Forzamos el estado a 'finalizado' y aseguramos que la tarjeta muestre el botón de cobro
-    const { error } = await supabase.from('consolas').update({ 
+    const updates = {
       estado: 'finalizado',
       tiempo_abierto: false
-    }).eq('id', c.id)
-    if (!error) fetchConsolas()
+    }
+
+    const { error } = await supabase.from('consolas').update(updates).eq('id', Number(c.id))
+    if (error) {
+      console.error('Error detallado de Supabase:', error.message)
+    } else {
+      fetchConsolas()
+    }
   }
 
   const handleReleaseConsole = async (c) => {
-    const { error } = await supabase.from('consolas').update({ 
-      estado: 'disponible', 
-      minutos_totales: 0, 
-      tiempo_abierto: false, 
+    const updates = {
+      estado: 'disponible',
+      minutos_totales: 0,
+      tiempo_abierto: false,
       monto_total: 0,
-      tiempo_inicio: null 
-    }).eq('id', c.id)
-    if (!error) fetchConsolas()
+      tiempo_inicio: null
+    }
+
+    const { error } = await supabase.from('consolas').update(updates).eq('id', Number(c.id))
+    if (error) {
+      console.error('Error detallado de Supabase:', error.message)
+    } else {
+      fetchConsolas()
+    }
   }
 
   // --- ACCIONES DE PRODUCTOS E INVENTARIO ---
