@@ -53,13 +53,13 @@ export default function AdminDashboard() {
     }
   }, [])
 
-  // S sincronización directa con Supabase (Sin bloqueos de red local)
+  // Sincronización directa con Supabase usando tus tablas reales
   const fetchCloudData = async () => {
     try {
       const { data: prodData } = await supabase.from('productos').select('*')
       if (prodData) setProducts(prodData)
 
-      const { data: salesData } = await supabase.from('ventas').select('*')
+      const { data: salesData } = await supabase.from('historial_ventas').select('*')
       if (salesData) {
         setSalesHistory(salesData)
         
@@ -135,7 +135,7 @@ export default function AdminDashboard() {
 
   const handleRegisterSale = async (saleData) => {
     try {
-      const { error } = await supabase.from('ventas').insert([saleData])
+      const { error } = await supabase.from('historial_ventas').insert([saleData])
       if (!error) {
         fetchCloudData()
       }
