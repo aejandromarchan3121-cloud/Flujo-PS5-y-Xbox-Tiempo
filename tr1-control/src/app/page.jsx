@@ -12,6 +12,14 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 )
 
+// Función auxiliar para dar formato con separador de miles y decimales
+const fmtMoney = (val) => {
+  return Number(val || 0).toLocaleString('es-CO', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+};
+
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('consolas') // 'consolas' | 'productos' | 'finanzas'
   const [consolas, setConsolas] = useState([])
@@ -34,7 +42,7 @@ export default function AdminDashboard() {
     fetchCloudData()
     fetchConsolas()
 
-    // Realtime con Supabase para sincronizar consolas e inventario
+    // Realtime con Supabase para sincronizar datos
     const channel = supabase
       .channel('realtime-tr1')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'consolas' }, () => {
@@ -191,7 +199,7 @@ export default function AdminDashboard() {
     }
   }
 
- const handleRegisterSale = async (saleData) => {
+  const handleRegisterSale = async (saleData) => {
     try {
       const { productId, newStock, ...dbData } = saleData;
 
@@ -208,6 +216,7 @@ export default function AdminDashboard() {
       console.error('Error al registrar venta:', err);
     }
   }
+
   return (
     <div className="p-6 bg-carbon min-h-screen text-white font-sans">
       {/* HEADER Y PESTAÑAS */}
@@ -257,20 +266,24 @@ export default function AdminDashboard() {
 
       {/* PESTAÑA 2: PRODUCTOS, ALQUILERES E INVENTARIO */}
       {activeTab === 'productos' && (
-        <div className="space-y-6">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-bold text-indigo-300">Gestión de Productos y Alquileres</h2>
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-lg font-bold text-sm transition"
-            >
-              + Nuevo Producto / Alquiler
-            </button>
-          </div>
+  <div className="space-y-6">
+    <div className="flex justify-between items-center">
+      <h2 className="text-xl font-bold text-indigo-300">Gestión de Productos y Alquileres</h2>
+      <button
+        onClick={() => setIsModalOpen(true)}
+        className="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-lg font-bold text-sm transition"
+      >
+        + Nuevo Producto / Alquiler
+      </button>
+    </div>
 
-          <ProductosSalesModule products={products} onRegisterSale={handleRegisterSale} />
-        </div>
-      )}
+    <ProductosSalesModule 
+      products={products} 
+      onRegisterSale={handleRegisterSale} 
+      salesHistory={salesHistory} 
+    />
+  </div>
+)}
 
       {/* PESTAÑA 3: FINANZAS DIARIAS */}
       {activeTab === 'finanzas' && (
@@ -290,9 +303,9 @@ export default function AdminDashboard() {
                 {Object.entries(finances).map(([date, f]) => (
                   <tr key={date} className="border-b border-zinc-800/50 hover:bg-zinc-850">
                     <td className="p-3 font-medium text-white">{date}</td>
-                    <td className="p-3">${f.totalConsoles?.toFixed(2) || '0.00'}</td>
-                    <td className="p-3">${f.totalProducts?.toFixed(2) || '0.00'}</td>
-                    <td className="p-3 text-emerald-400 font-bold">${f.totalGeneral?.toFixed(2) || '0.00'}</td>
+                    <td className="p-3">${fmtMoney(f.totalConsoles)}</td>
+                    <td className="p-3">${fmtMoney(f.totalProducts)}</td>
+                    <td className="p-3 text-emerald-400 font-bold">${fmtMoney(f.totalGeneral)}</td>
                   </tr>
                 ))}
               </tbody>

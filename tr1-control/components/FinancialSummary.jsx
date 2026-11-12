@@ -1,6 +1,14 @@
 'use client'
 import React, { useMemo } from 'react';
 
+// Función auxiliar de formato con separador de miles
+const fmtMoney = (val) => {
+  return Number(val || 0).toLocaleString('es-CO', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2
+  });
+};
+
 export default function FinancialSummary({ salesHistory }) {
   const analytics = useMemo(() => {
     const now = new Date();
@@ -15,7 +23,6 @@ export default function FinancialSummary({ salesHistory }) {
     let productIncome = 0;
 
     salesHistory.forEach((sale) => {
-      // Tomamos la fecha y el monto adaptados a cualquier estructura de Supabase
       const dateStr = sale.fecha || sale.vendido_at || sale.tiempo_inicio || sale.created_at;
       if (!dateStr) return;
       
@@ -40,11 +47,11 @@ export default function FinancialSummary({ salesHistory }) {
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
       <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
         <p className="text-xs text-zinc-400 uppercase font-semibold">Ingresos Hoy</p>
-        <p className="text-2xl font-extrabold text-emerald-400 mt-1">${analytics.dailyTotal.toFixed(2)}</p>
+        <p className="text-2xl font-extrabold text-emerald-400 mt-1">${fmtMoney(analytics.dailyTotal)}</p>
       </div>
       <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
         <p className="text-xs text-zinc-400 uppercase font-semibold">Ingresos Esta Semana</p>
-        <p className="text-2xl font-extrabold text-blue-400 mt-1">${analytics.weeklyTotal.toFixed(2)}</p>
+        <p className="text-2xl font-extrabold text-blue-400 mt-1">${fmtMoney(analytics.weeklyTotal)}</p>
       </div>
     </div>
   );
