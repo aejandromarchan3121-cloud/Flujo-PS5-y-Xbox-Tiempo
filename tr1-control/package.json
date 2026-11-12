@@ -11,10 +11,13 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.48.1",
+    "autoprefixer": "^10.6.2",
     "lucide-react": "^0.474.0",
     "next": "15.1.6",
+    "postcss": "^8.5.32",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "tailwindcss": "^4.3.5"
   },
   "devDependencies": {
     "electron": "^28.3.3",
