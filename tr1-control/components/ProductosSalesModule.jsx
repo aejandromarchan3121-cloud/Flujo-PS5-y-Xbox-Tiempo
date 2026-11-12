@@ -22,6 +22,8 @@ export default function ProductSalesModule({ products, onRegisterSale, salesHist
 
   const handleSale = (product) => {
     const qtyToSell = quantities[product.id] || 1;
+    const prodName = product.nombre || product.name || 'Producto';
+    const prodPrice = Number(product.precio || product.price || 0);
     
     if (product.stock < qtyToSell) {
       alert('Stock insuficiente');
@@ -29,9 +31,9 @@ export default function ProductSalesModule({ products, onRegisterSale, salesHist
     }
 
     onRegisterSale({
-      producto_nombre: product.name,
+      producto_nombre: prodName,
       cantidad: qtyToSell,
-      total_cobrado: Number((product.price * qtyToSell).toFixed(2)),
+      total_cobrado: Number((prodPrice * qtyToSell).toFixed(2)),
       vendido_at: new Date().toISOString(),
       productId: product.id,
       newStock: product.stock - qtyToSell
@@ -51,6 +53,8 @@ export default function ProductSalesModule({ products, onRegisterSale, salesHist
           {products.map((prod) => {
             const currentQty = quantities[prod.id] || 1;
             const isOutOfStock = prod.stock <= 0;
+            const displayName = prod.nombre || prod.name || 'Sin nombre';
+            const displayPrice = Number(prod.precio || prod.price || 0);
 
             return (
               <div
@@ -63,11 +67,11 @@ export default function ProductSalesModule({ products, onRegisterSale, salesHist
               >
                 <div className="flex justify-between items-start mb-3">
                   <div>
-                    <p className="font-semibold text-sm text-zinc-100">{prod.name}</p>
+                    <p className="font-semibold text-sm text-zinc-100">{displayName}</p>
                     <p className="text-[11px] text-zinc-400">Stock disponible: <span className="text-zinc-200 font-medium">{prod.stock}</span></p>
                   </div>
                   <p className="text-emerald-400 font-bold font-display text-base">
-                    ${fmtMoney(prod.price * currentQty)}
+                    ${fmtMoney(displayPrice * currentQty)}
                   </p>
                 </div>
 
@@ -146,7 +150,7 @@ export default function ProductSalesModule({ products, onRegisterSale, salesHist
                         </span>
                       </td>
                       <td className="p-3 font-medium text-white">
-                        {esConsola ? `Alquiler ${item.consola_nombre || 'Consola'}` : (item.producto_nombre || item.name || 'Venta')}
+                        {esConsola ? `Alquiler ${item.consola_nombre || 'Consola'}` : (item.producto_nombre || item.nombre || item.name || 'Venta')}
                       </td>
                       <td className="p-3 text-xs text-zinc-400">
                         {esConsola ? `${item.minutos_usados || 0} minutos` : `Cantidad: ${item.cantidad || 1}`}
