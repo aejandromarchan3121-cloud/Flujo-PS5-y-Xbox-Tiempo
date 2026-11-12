@@ -2,6 +2,8 @@
 
 @theme {
   --color-carbon: #121212;
+  --font-body: var(--font-body), sans-serif;
+  --font-display: var(--font-display), sans-serif;
 }
 
 body {
