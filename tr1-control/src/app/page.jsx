@@ -68,7 +68,7 @@ export default function AdminDashboard() {
       // Fallback por si se abre en un navegador web convencional por fuera de Electron
 // Fallback por si se abre en un navegador web convencional por fuera de Electron
       const res = await fetch('http://localhost:3000/api/state', {
-        targetAddressSpace: 'local'
+        targetAddressSpace: 'loopback', // <--- IGNORA RESTRICCIONES DE RED LOCAL Y CORS EN NAVEGADORES MODERNOS
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
 
