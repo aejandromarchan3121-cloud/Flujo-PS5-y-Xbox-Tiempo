@@ -3,10 +3,10 @@ import React, { useState, useEffect } from 'react'
 import { createClient } from '@supabase/supabase-js'
 
 // Importa tus componentes modulares si prefieres mantener la separación
-import ConsoleCard from './ConsoleCard'
-import FinancialSummary from './FinancialSummary'
-import ProductosSalesModule from './ProductosSalesModule'
-import Modal from './Modal'
+import ConsoleCard from '../../components/ConsoleCard'
+import FinancialSummary from '../../components/FinancialSummary'
+import ProductosSalesModule from '../../components/ProductosSalesModule'
+import Modal from '../../components/Modal'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
