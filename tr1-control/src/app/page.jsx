@@ -17,10 +17,17 @@ export default function AdminDashboard() {
   const [products, setProducts] = useState([])
   const [finances, setFinances] = useState({})
   const [salesHistory, setSalesHistory] = useState([])
+  const [now, setNow] = useState(Date.now())
 
   // Estado para el modal de agregar producto
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [newProd, setNewProd] = useState({ name: '', type: 'consumible', price: '', stock: '' })
+
+  // Actualizar el reloj en tiempo real para las tarjetas de consola
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(timer)
+  }, [])
 
   useEffect(() => {
     fetchLocalData()
@@ -56,6 +63,29 @@ export default function AdminDashboard() {
     if (data) setConsolas(data)
   }
 
+  // --- ACCIONES DE CONSOLAS ---
+  const handleAddTime = async (c, mins) => {
+    // Lógica para sumar minutos a la consola
+    const currentMins = c.minutos_totales || 0
+    await supabase.from('consolas').update({ minutos_totales: currentMins + mins, estado: 'uso' }).eq('id', c.id)
+    fetchConsolas()
+  }
+
+  const handleOpenTime = async (c) => {
+    await supabase.from('consolas').update({ estado: 'uso', tiempo_abierto: true, hora_inicio: new Date().toISOString() }).eq('id', c.id)
+    fetchConsolas()
+  }
+
+  const handleFinishTime = async (c) => {
+    await supabase.from('consolas').update({ estado: 'agotado' }).eq('id', c.id)
+    fetchConsolas()
+  }
+
+  const handleReleaseConsole = async (c) => {
+    await supabase.from('consolas').update({ estado: 'libre', minutos_totales: 0, tiempo_abierto: false, monto_total: 0 }).eq('id', c.id)
+    fetchConsolas()
+  }
+
   // --- ACCIONES DE PRODUCTOS E INVENTARIO ---
   const handleAddProduct = async (e) => {
     e.preventDefault()
@@ -76,22 +106,12 @@ export default function AdminDashboard() {
     }
   }
 
-  const handleDeleteProduct = async (id) => {
-    try {
-      const res = await fetch(`http://localhost:3000/api/products/${id}`, { method: 'DELETE' })
-      const data = await res.json()
-      if (data.success) setProducts(data.products)
-    } catch (err) {
-      console.error('Error al eliminar producto:', err)
-    }
-  }
-
-  const handleSellProduct = async (productId, quantity = 1) => {
+  const handleRegisterSale = async (saleData) => {
     try {
       const res = await fetch('http://localhost:3000/api/sales', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productId, quantity })
+        body: JSON.stringify(saleData)
       })
       const data = await res.json()
       if (data.success) {
@@ -104,59 +124,48 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="p-6 bg-gray-950 min-h-screen text-white font-sans">
+    <div className="p-6 bg-carbon min-h-screen text-white font-sans">
       {/* HEADER Y PESTAÑAS */}
-      <header className="flex justify-between items-center mb-6 border-b border-gray-800 pb-4">
-        <h1 className="text-2xl font-bold tracking-wider text-indigo-400">TR1 // CONTROL DE SALA</h1>
+      <header className="flex justify-between items-center mb-6 border-b border-zinc-800 pb-4">
+        <h1 className="text-2xl font-bold tracking-wider text-indigo-400 font-display">TR1 // CONTROL DE SALA</h1>
         <div className="flex gap-3">
           <button
             onClick={() => setActiveTab('consolas')}
-            className={`px-4 py-2 rounded-lg font-semibold transition ${activeTab === 'consolas' ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
+            className={`px-4 py-2 rounded-lg font-semibold transition ${activeTab === 'consolas' ? 'bg-indigo-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}
           >
             Consolas & TVs
           </button>
           <button
             onClick={() => setActiveTab('productos')}
-            className={`px-4 py-2 rounded-lg font-semibold transition ${activeTab === 'productos' ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
+            className={`px-4 py-2 rounded-lg font-semibold transition ${activeTab === 'productos' ? 'bg-indigo-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}
           >
             Ventas & Inventario
           </button>
           <button
             onClick={() => setActiveTab('finanzas')}
-            className={`px-4 py-2 rounded-lg font-semibold transition ${activeTab === 'finanzas' ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
+            className={`px-4 py-2 rounded-lg font-semibold transition ${activeTab === 'finanzas' ? 'bg-indigo-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}
           >
             Finanzas Diarias
           </button>
         </div>
       </header>
 
-      {/* PESTAÑA 1: CONSOLAS Y TVS */}
+      {/* RESUMEN FINANCIERO SUPERIOR */}
+      <FinancialSummary salesHistory={salesHistory} />
+
+      {/* PESTAÑA 1: CONSOLAS Y TVS (USANDO ConsoleCard) */}
       {activeTab === 'consolas' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {consolas.map((consola) => (
-            <div key={consola.id} className="bg-gray-900 p-5 rounded-xl border border-gray-800 shadow-lg">
-              <div className="flex justify-between items-center mb-3">
-                <h3 className="text-xl font-bold">{consola.nombre}</h3>
-                <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${consola.estado === 'ocupada' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-green-500/20 text-green-400 border border-green-500/30'}`}>
-                  {consola.estado}
-                </span>
-              </div>
-              <p className="text-sm text-gray-400 mb-4">IP TV: <span className="text-indigo-300">{consola.ip_address || 'Sin asignar'}</span></p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => supabase.from('consolas').update({ estado: 'ocupada' }).eq('id', consola.id)}
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-500 py-2 rounded-lg font-bold text-sm transition"
-                >
-                  Iniciar Tiempo
-                </button>
-                <button
-                  onClick={() => supabase.from('consolas').update({ estado: 'disponible' }).eq('id', consola.id)}
-                  className="flex-1 bg-rose-600 hover:bg-rose-500 py-2 rounded-lg font-bold text-sm transition"
-                >
-                  Liberar
-                </button>
-              </div>
-            </div>
+            <ConsoleCard
+              key={consola.id}
+              c={consola}
+              now={now}
+              onAdd={handleAddTime}
+              onOpen={handleOpenTime}
+              onFinish={handleFinishTime}
+              onRelease={handleReleaseConsole}
+            />
           ))}
         </div>
       )}
@@ -174,42 +183,17 @@ export default function AdminDashboard() {
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {products.map((p) => (
-              <div key={p.id} className="bg-gray-900 p-5 rounded-xl border border-gray-800 flex flex-col justify-between">
-                <div>
-                  <h4 className="font-bold text-lg text-white">{p.name}</h4>
-                  <p className="text-xs text-gray-400 uppercase tracking-wide mt-1">Tipo: {p.type}</p>
-                  <p className="text-xl font-bold text-emerald-400 mt-2">${p.price?.toFixed(2)} USD</p>
-                  <p className="text-xs text-gray-400 mt-1">Stock disponible: <span className="font-bold text-white">{p.stock}</span></p>
-                </div>
-                <div className="flex gap-2 mt-5">
-                  <button
-                    onClick={() => handleSellProduct(p.id, 1)}
-                    className="flex-1 bg-indigo-600 hover:bg-indigo-500 py-2 rounded-lg font-bold text-sm transition"
-                  >
-                    Vender (1)
-                  </button>
-                  <button
-                    onClick={() => handleDeleteProduct(p.id)}
-                    className="bg-gray-800 hover:bg-rose-600/30 text-rose-400 px-3 py-2 rounded-lg font-bold text-sm transition"
-                  >
-                    🗑️
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+          <ProductosSalesModule products={products} onRegisterSale={handleRegisterSale} />
         </div>
       )}
 
       {/* PESTAÑA 3: FINANZAS DIARIAS */}
       {activeTab === 'finanzas' && (
-        <div className="bg-gray-900 p-6 rounded-xl border border-gray-800">
+        <div className="bg-zinc-900 p-6 rounded-xl border border-zinc-800">
           <h2 className="text-xl font-bold mb-4 text-indigo-300">Historial de Finanzas por Día</h2>
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-gray-300">
-              <thead className="bg-gray-950 uppercase text-xs text-gray-400 border-b border-gray-800">
+            <table className="w-full text-left text-sm text-zinc-300">
+              <thead className="bg-zinc-950 uppercase text-xs text-zinc-400 border-b border-zinc-800">
                 <tr>
                   <th className="p-3">Fecha</th>
                   <th className="p-3">Total Consolas</th>
@@ -219,7 +203,7 @@ export default function AdminDashboard() {
               </thead>
               <tbody>
                 {Object.entries(finances).map(([date, f]) => (
-                  <tr key={date} className="border-b border-gray-800/50 hover:bg-gray-850">
+                  <tr key={date} className="border-b border-zinc-800/50 hover:bg-zinc-850">
                     <td className="p-3 font-medium text-white">{date}</td>
                     <td className="p-3">${f.totalConsoles?.toFixed(2) || '0.00'}</td>
                     <td className="p-3">${f.totalProducts?.toFixed(2) || '0.00'}</td>
@@ -232,81 +216,77 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* MODAL PARA AGREGAR PRODUCTOS/ALQUILERES */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <form onSubmit={handleAddProduct} className="bg-gray-900 p-6 rounded-2xl border border-gray-800 w-full max-w-md space-y-4 shadow-2xl">
-            <h3 className="text-lg font-bold text-indigo-300">Agregar Nuevo Producto o Alquiler</h3>
-            
+      {/* MODAL PARA AGREGAR PRODUCTOS/ALQUILERES (USANDO Modal) */}
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Agregar Nuevo Producto o Alquiler">
+        <form onSubmit={handleAddProduct} className="space-y-4">
+          <div>
+            <label className="text-xs text-zinc-400">Nombre del artículo</label>
+            <input
+              type="text"
+              placeholder="Ej. Pepsi, Doritos, Auriculares (Alquiler)"
+              value={newProd.name}
+              onChange={(e) => setNewProd({ ...newProd, name: e.target.value })}
+              className="w-full mt-1 bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-gray-400">Nombre del artículo</label>
-              <input
-                type="text"
-                placeholder="Ej. Pepsi, Doritos, Auriculares (Alquiler)"
-                value={newProd.name}
-                onChange={(e) => setNewProd({ ...newProd, name: e.target.value })}
-                className="w-full mt-1 bg-gray-950 border border-gray-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
-                required
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs text-gray-400">Tipo</label>
-                <select
-                  value={newProd.type}
-                  onChange={(e) => setNewProd({ ...newProd, type: e.target.value })}
-                  className="w-full mt-1 bg-gray-950 border border-gray-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
-                >
-                  <option value="consumible">Consumible</option>
-                  <option value="alquiler">Alquiler</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs text-gray-400">Precio ($)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  placeholder="1.50"
-                  value={newProd.price}
-                  onChange={(e) => setNewProd({ ...newProd, price: e.target.value })}
-                  className="w-full mt-1 bg-gray-950 border border-gray-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
-                  required
-                />
-              </div>
+              <label className="text-xs text-zinc-400">Tipo</label>
+              <select
+                value={newProd.type}
+                onChange={(e) => setNewProd({ ...newProd, type: e.target.value })}
+                className="w-full mt-1 bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
+              >
+                <option value="consumible">Consumible</option>
+                <option value="alquiler">Alquiler</option>
+              </select>
             </div>
 
             <div>
-              <label className="text-xs text-gray-400">Stock Inicial</label>
+              <label className="text-xs text-zinc-400">Precio ($)</label>
               <input
                 type="number"
-                placeholder="20"
-                value={newProd.stock}
-                onChange={(e) => setNewProd({ ...newProd, stock: e.target.value })}
-                className="w-full mt-1 bg-gray-950 border border-gray-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
+                step="0.01"
+                placeholder="1.50"
+                value={newProd.price}
+                onChange={(e) => setNewProd({ ...newProd, price: e.target.value })}
+                className="w-full mt-1 bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
                 required
               />
             </div>
+          </div>
 
-            <div className="flex justify-end gap-3 pt-3">
-              <button
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded-lg text-sm font-semibold transition"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                className="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-lg text-sm font-bold transition"
-              >
-                Guardar Producto
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+          <div>
+            <label className="text-xs text-zinc-400">Stock Inicial</label>
+            <input
+              type="number"
+              placeholder="20"
+              value={newProd.stock}
+              onChange={(e) => setNewProd({ ...newProd, stock: e.target.value })}
+              className="w-full mt-1 bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
+              required
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-3">
+            <button
+              type="button"
+              onClick={() => setIsModalOpen(false)}
+              className="bg-zinc-800 hover:bg-zinc-700 px-4 py-2 rounded-lg text-sm font-semibold transition"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              className="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-lg text-sm font-bold transition"
+            >
+              Guardar Producto
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   )
 }
