@@ -171,6 +171,34 @@ export default function AdminDashboard() {
   }
 
   const handleReleaseConsole = async (c) => {
+    // 1. Calcular los minutos usados reales
+    let minutosUsados = Number(c.minutos_totales || 0);
+    
+    if (c.tiempo_abierto && c.tiempo_inicio) {
+      const diffMs = Date.now() - new Date(c.tiempo_inicio).getTime();
+      minutosUsados = Math.floor(diffMs / 60000);
+    }
+
+    // 2. Calcular el monto basado en la tarifa por hora de la consola
+    const tarifaHora = Number(c.tarifa_hora || 0);
+    const montoCobrado = Number(((tarifaHora / 60) * minutosUsados).toFixed(2));
+
+    // 3. Registrar automáticamente en la tabla 'historial_cajas' de Supabase
+    try {
+      await supabase.from('historial_cajas').insert([{
+        consola_id: c.id,
+        consola_nombre: c.nombre || c.name || `Consola #${c.id}`,
+        tiempo_inicio: c.tiempo_inicio || new Date().toISOString(),
+        minutos_usados: minutosUsados,
+        monto_cobrado: montoCobrado,
+        metodo_pago: 'Efectivo',
+        cerrado_at: new Date().toISOString()
+      }]);
+    } catch (err) {
+      console.error('Error al registrar caja de consola:', err);
+    }
+
+    // 4. Liberar la consola en la base de datos para dejarla disponible
     const updates = {
       estado: 'disponible',
       minutos_totales: 0,
@@ -181,8 +209,9 @@ export default function AdminDashboard() {
 
     const { error } = await supabase.from('consolas').update(updates).eq('id', Number(c.id))
     if (error) {
-      console.error('Error detallado de Supabase:', error.message)
+      console.error('Error detallado de Supabase al liberar:', error.message)
     } else {
+      fetchCloudData()
       fetchConsolas()
     }
   }
