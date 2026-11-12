@@ -5,7 +5,7 @@ import ConsoleCard from '../../components/ConsoleCard'
 import FinancialSummary from '../../components/FinancialSummary'
 import ProductosSalesModule from '../../components/ProductosSalesModule'
 import Modal from '../../components/Modal'
-import SplashScreen from '../../components/SplashScreen' // <--- IMPORTACIÓN AÑADIDA
+import SplashScreen from '../../components/SplashScreen'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -34,14 +34,17 @@ export default function AdminDashboard() {
   }, [])
 
   useEffect(() => {
-    fetchLocalData()
+    fetchCloudData()
     fetchConsolas()
 
-    // Realtime con Supabase para sincronizar consolas
+    // Realtime con Supabase para sincronizar consolas e inventario
     const channel = supabase
-      .channel('realtime-consolas')
+      .channel('realtime-tr1')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'consolas' }, () => {
         fetchConsolas()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'productos' }, () => {
+        fetchCloudData()
       })
       .subscribe()
 
@@ -50,37 +53,30 @@ export default function AdminDashboard() {
     }
   }, [])
 
-  const fetchLocalData = async () => {
+  // S sincronización directa con Supabase (Sin bloqueos de red local)
+  const fetchCloudData = async () => {
     try {
-      // Si estamos dentro de Electron con nodeIntegration activo:
-      if (typeof window !== 'undefined' && window.require) {
-        const { ipcRenderer } = window.require('electron')
-        const result = await ipcRenderer.invoke('get-local-state')
+      const { data: prodData } = await supabase.from('productos').select('*')
+      if (prodData) setProducts(prodData)
 
-        if (result.success && result.data) {
-          setProducts(result.data.products || [])
-          setFinances(result.data.dailyFinances || {})
-          setSalesHistory(result.data.salesHistory || [])
-          return
-        }
+      const { data: salesData } = await supabase.from('ventas').select('*')
+      if (salesData) {
+        setSalesHistory(salesData)
+        
+        const groupedFinances = {}
+        salesData.forEach(sale => {
+          const date = new Date(sale.created_at || Date.now()).toISOString().split('T')[0]
+          if (!groupedFinances[date]) {
+            groupedFinances[date] = { totalConsoles: 0, totalProducts: 0, totalGeneral: 0 }
+          }
+          const amount = Number(sale.total || sale.precio || 0)
+          groupedFinances[date].totalProducts += amount
+          groupedFinances[date].totalGeneral += amount
+        })
+        setFinances(groupedFinances)
       }
-
-      // Fallback por si se abre en un navegador web convencional por fuera de Electron
-// Fallback por si se abre en un navegador web convencional por fuera de Electron
-      const res = await fetch('http://localhost:3000/api/state', {
-        targetAddressSpace: 'loopback', // <--- IGNORA RESTRICCIONES DE RED LOCAL Y CORS EN NAVEGADORES MODERNOS
-      })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-
-      const data = await res.json()
-      setProducts(data.products || [])
-      setFinances(data.dailyFinances || {})
-      setSalesHistory(data.salesHistory || [])
     } catch (e) {
-      console.log('Servidor local offline o conectando...', e)
-      setProducts([])
-      setFinances({})
-      setSalesHistory([])
+      console.log('Error al sincronizar con Supabase:', e)
     }
   }
 
@@ -89,7 +85,7 @@ export default function AdminDashboard() {
     if (data) setConsolas(data)
   }
 
-  // --- ACCIONES DE CONSOLAS (Actualizadas con los estados permitidos: 'disponible', 'ocupada', 'finalizado') ---
+  // --- ACCIONES DE CONSOLAS ---
   const handleAddTime = async (c, mins) => {
     const currentMins = c.minutos_totales || 0
     await supabase.from('consolas').update({ minutos_totales: currentMins + mins, estado: 'ocupada' }).eq('id', c.id)
@@ -120,16 +116,17 @@ export default function AdminDashboard() {
   const handleAddProduct = async (e) => {
     e.preventDefault()
     try {
-      const res = await fetch('http://localhost:3000/api/products', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newProd)
-      })
-      const data = await res.json()
-      if (data.success) {
-        setProducts(data.products)
+      const { error } = await supabase.from('productos').insert([{
+        name: newProd.name,
+        type: newProd.type,
+        price: parseFloat(newProd.price),
+        stock: parseInt(newProd.stock, 10)
+      }])
+
+      if (!error) {
         setIsModalOpen(false)
         setNewProd({ name: '', type: 'consumible', price: '', stock: '' })
+        fetchCloudData()
       }
     } catch (err) {
       console.error('Error al agregar producto:', err)
@@ -138,15 +135,9 @@ export default function AdminDashboard() {
 
   const handleRegisterSale = async (saleData) => {
     try {
-      const res = await fetch('http://localhost:3000/api/sales', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(saleData)
-      })
-      const data = await res.json()
-      if (data.success) {
-        setProducts(data.products)
-        fetchLocalData()
+      const { error } = await supabase.from('ventas').insert([saleData])
+      if (!error) {
+        fetchCloudData()
       }
     } catch (err) {
       console.error('Error al registrar venta:', err)
@@ -183,7 +174,7 @@ export default function AdminDashboard() {
       {/* RESUMEN FINANCIERO SUPERIOR */}
       <FinancialSummary salesHistory={salesHistory} />
 
-      {/* PESTAÑA 1: CONSOLAS Y TVS (USANDO ConsoleCard) */}
+      {/* PESTAÑA 1: CONSOLAS Y TVS */}
       {activeTab === 'consolas' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {consolas.map((consola) => (
@@ -246,7 +237,7 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* MODAL PARA AGREGAR PRODUCTOS/ALQUILERES (USANDO Modal) */}
+      {/* MODAL PARA AGREGAR PRODUCTOS/ALQUILERES */}
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Agregar Nuevo Producto o Alquiler">
         <form onSubmit={handleAddProduct} className="space-y-4">
           <div>
