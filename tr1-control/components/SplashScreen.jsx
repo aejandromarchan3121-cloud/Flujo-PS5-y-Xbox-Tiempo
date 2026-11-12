@@ -27,7 +27,7 @@ export default function SplashScreen({ onFinish }) {
     }, 600)
 
     return () => clearInterval(interval)
-  }, [onFinish])
+  }, [])
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#0B0C10] text-white font-mono select-none">

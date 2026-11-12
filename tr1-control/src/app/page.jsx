@@ -87,13 +87,31 @@ export default function AdminDashboard() {
 
   // --- ACCIONES DE CONSOLAS ---
   const handleAddTime = async (c, mins) => {
-    const currentMins = c.minutos_totales || 0
-    await supabase.from('consolas').update({ minutos_totales: currentMins + mins, estado: 'ocupada' }).eq('id', c.id)
+    const isStartingNew = c.estado === 'disponible' || c.estado === 'finalizado' || !c.tiempo_inicio
+    const currentMins = isStartingNew ? 0 : (c.minutos_totales || 0)
+    const newMins = currentMins + mins
+
+    const updates = {
+      minutos_totales: newMins,
+      estado: 'ocupada',
+      tiempo_abierto: false,
+    }
+
+    if (isStartingNew) {
+      updates.tiempo_inicio = new Date().toISOString()
+    }
+
+    await supabase.from('consolas').update(updates).eq('id', c.id)
     fetchConsolas()
   }
 
   const handleOpenTime = async (c) => {
-    await supabase.from('consolas').update({ estado: 'ocupada', tiempo_abierto: true, tiempo_inicio: new Date().toISOString() }).eq('id', c.id)
+    await supabase.from('consolas').update({ 
+      estado: 'ocupada', 
+      tiempo_abierto: true, 
+      minutos_totales: 0,
+      tiempo_inicio: new Date().toISOString() 
+    }).eq('id', c.id)
     fetchConsolas()
   }
 
@@ -103,7 +121,13 @@ export default function AdminDashboard() {
   }
 
   const handleReleaseConsole = async (c) => {
-    await supabase.from('consolas').update({ estado: 'disponible', minutos_totales: 0, tiempo_abierto: false, monto_total: 0 }).eq('id', c.id)
+    await supabase.from('consolas').update({ 
+      estado: 'disponible', 
+      minutos_totales: 0, 
+      tiempo_abierto: false, 
+      monto_total: 0,
+      tiempo_inicio: null 
+    }).eq('id', c.id)
     fetchConsolas()
   }
 
