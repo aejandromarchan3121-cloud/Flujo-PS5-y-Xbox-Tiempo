@@ -9,18 +9,23 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
+    minWidth: 1024,
+    minHeight: 600,
     title: "TR1 — Control de Sala & Servidor",
+    autoHideMenuBar: true,
+    backgroundColor: '#0B0C10',
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false
     }
   });
 
-  // Carga tu plataforma web (o tu entorno local si prefieres)
-  mainWindow.loadURL('https://flujo-ps5-y-xbox-tiempo.vercel.app/');
+  // Carga tu plataforma web (Vercel o entorno local configurable)
+  const startUrl = process.env.ELECTRON_START_URL || 'https://flujo-ps5-y-xbox-tiempo.vercel.app/';
+  mainWindow.loadURL(startUrl);
 
   // 1. Ejecutar la conexión inicial de ADB a la IP fija
-  conectarAdFija();;
+  conectarAdFija();
 
   // 2. Iniciar el servidor backend local (server/index.js) y PM2
   iniciarBackendYPM2();

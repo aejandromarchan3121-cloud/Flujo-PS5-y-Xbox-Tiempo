@@ -27,9 +27,17 @@
   "build": {
     "appId": "com.control.gaming",
     "productName": "ControlGamingApp",
+    "files": [
+      "**/*",
+      "../server/**/*"
+    ],
     "win": {
       "target": "nsis",
       "requestedExecutionLevel": "requireAdministrator"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
     }
   }
 }
