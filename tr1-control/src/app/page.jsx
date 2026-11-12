@@ -85,7 +85,7 @@ export default function AdminDashboard() {
     if (data) setConsolas(data)
   }
 
-  // --- ACCIONES DE CONSOLAS ---
+ // --- ACCIONES DE CONSOLAS ---
   const handleAddTime = async (c, mins) => {
     const isStartingNew = c.estado === 'disponible' || c.estado === 'finalizado' || !c.tiempo_inicio
     const currentMins = isStartingNew ? 0 : (c.minutos_totales || 0)
@@ -101,39 +101,38 @@ export default function AdminDashboard() {
       updates.tiempo_inicio = new Date().toISOString()
     }
 
-    await supabase.from('consolas').update(updates).eq('id', c.id)
-    fetchConsolas()
+    const { error } = await supabase.from('consolas').update(updates).eq('id', c.id)
+    if (!error) fetchConsolas()
   }
 
   const handleOpenTime = async (c) => {
-    await supabase.from('consolas').update({ 
+    const { error } = await supabase.from('consolas').update({ 
       estado: 'ocupada', 
       tiempo_abierto: true, 
       minutos_totales: 0,
       tiempo_inicio: new Date().toISOString() 
     }).eq('id', c.id)
-    fetchConsolas()
+    if (!error) fetchConsolas()
   }
 
   const handleFinishTime = async (c) => {
-    await supabase.from('consolas').update({ estado: 'finalizado' }).eq('id', c.id)
-    fetchConsolas()
+    // Forzamos el estado a 'finalizado' y aseguramos que la tarjeta muestre el botón de cobro
+    const { error } = await supabase.from('consolas').update({ 
+      estado: 'finalizado',
+      tiempo_abierto: false
+    }).eq('id', c.id)
+    if (!error) fetchConsolas()
   }
 
   const handleReleaseConsole = async (c) => {
-    await supabase.from('consolas').update({ 
+    const { error } = await supabase.from('consolas').update({ 
       estado: 'disponible', 
       minutos_totales: 0, 
       tiempo_abierto: false, 
       monto_total: 0,
       tiempo_inicio: null 
     }).eq('id', c.id)
-    fetchConsolas()
-  }
-
-  // Pantalla de carga inicial condicional
-  if (showSplash) {
-    return <SplashScreen onFinish={() => setShowSplash(false)} />
+    if (!error) fetchConsolas()
   }
 
   // --- ACCIONES DE PRODUCTOS E INVENTARIO ---
