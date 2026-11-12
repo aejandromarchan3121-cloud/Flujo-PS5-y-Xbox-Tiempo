@@ -85,6 +85,12 @@ export default function AdminDashboard() {
     await supabase.from('consolas').update({ estado: 'libre', minutos_totales: 0, tiempo_abierto: false, monto_total: 0 }).eq('id', c.id)
     fetchConsolas()
   }
+// --- ACTIVACION DE ANIMACION ---
+const [showSplash, setShowSplash] = useState(true)
+
+if (showSplash) {
+  return <SplashScreen onFinish={() => setShowSplash(false)} />
+}
 
   // --- ACCIONES DE PRODUCTOS E INVENTARIO ---
   const handleAddProduct = async (e) => {
