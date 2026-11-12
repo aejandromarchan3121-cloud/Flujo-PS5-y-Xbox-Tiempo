@@ -179,17 +179,21 @@ export default function AdminDashboard() {
   }
 
   // --- ACCIONES DE PRODUCTOS E INVENTARIO ---
+  // --- ACCIONES DE PRODUCTOS E INVENTARIO ---
   const handleAddProduct = async (e) => {
     e.preventDefault()
     try {
       const { error } = await supabase.from('productos').insert([{
-        name: newProd.name,
-        type: newProd.type,
-        price: parseFloat(newProd.price),
+        nombre: newProd.name,
+        tipo: newProd.type,
+        precio: parseFloat(newProd.price),
         stock: parseInt(newProd.stock, 10)
       }])
 
-      if (!error) {
+      if (error) {
+        console.error('Error detallado de Supabase al insertar producto:', error.message)
+        alert('Error al guardar: ' + error.message)
+      } else {
         setIsModalOpen(false)
         setNewProd({ name: '', type: 'consumible', price: '', stock: '' })
         fetchCloudData()
