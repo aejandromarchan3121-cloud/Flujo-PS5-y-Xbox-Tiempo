@@ -47,7 +47,7 @@ export default function ConsoleCard({ c, now, onAdd, onOpen, onFinish, onRelease
       {!libre && (
         <p className="mb-3 text-center text-sm text-zinc-300">
           <Timer size={13} className="mr-1 inline" /> {c.tiempo_abierto ? 'ABIERTO' : `${c.minutos_totales} MIN`} //{' '}
-          <span className="font-bold text-neon">${Number(c.monto_total).toFixed(2)}</span>
+          <span className="font-bold text-neon">${Number(d.monto || 0).toFixed(2)}</span>
         </p>
       )}
 
