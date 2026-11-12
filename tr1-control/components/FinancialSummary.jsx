@@ -1,3 +1,4 @@
+'use client'
 import React, { useMemo } from 'react';
 
 export default function FinancialSummary({ salesHistory }) {
@@ -14,16 +15,21 @@ export default function FinancialSummary({ salesHistory }) {
     let productIncome = 0;
 
     salesHistory.forEach((sale) => {
-      const saleTime = new Date(sale.timestamp).getTime();
+      // Tomamos la fecha y el monto adaptados a cualquier estructura de Supabase
+      const dateStr = sale.fecha || sale.vendido_at || sale.tiempo_inicio || sale.created_at;
+      if (!dateStr) return;
+      
+      const saleTime = new Date(dateStr).getTime();
+      const amount = Number(sale.monto || sale.total_cobrado || sale.total || 0);
       
       if (saleTime >= startOfDay) {
-        dailyTotal += sale.total;
-        if (sale.type === 'console_time') consoleIncome += sale.total;
-        if (sale.type === 'product_sale') productIncome += sale.total;
+        dailyTotal += amount;
+        if (sale.tipo === 'consola' || sale.consola_nombre) consoleIncome += amount;
+        if (sale.tipo === 'producto' || sale.producto_nombre) productIncome += amount;
       }
       
       if (saleTime >= startOfWeek) {
-        weeklyTotal += sale.total;
+        weeklyTotal += amount;
       }
     });
 
@@ -32,12 +38,12 @@ export default function FinancialSummary({ salesHistory }) {
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-      <div className="bg-slate-800 border border-slate-700 p-4 rounded-xl">
-        <p className="text-xs text-slate-400 uppercase font-semibold">Ingresos Hoy</p>
+      <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
+        <p className="text-xs text-zinc-400 uppercase font-semibold">Ingresos Hoy</p>
         <p className="text-2xl font-extrabold text-emerald-400 mt-1">${analytics.dailyTotal.toFixed(2)}</p>
       </div>
-      <div className="bg-slate-800 border border-slate-700 p-4 rounded-xl">
-        <p className="text-xs text-slate-400 uppercase font-semibold">Ingresos Esta Semana</p>
+      <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
+        <p className="text-xs text-zinc-400 uppercase font-semibold">Ingresos Esta Semana</p>
         <p className="text-2xl font-extrabold text-blue-400 mt-1">${analytics.weeklyTotal.toFixed(2)}</p>
       </div>
     </div>

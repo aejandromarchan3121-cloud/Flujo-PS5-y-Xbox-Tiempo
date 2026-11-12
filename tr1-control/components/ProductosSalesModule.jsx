@@ -21,14 +21,14 @@ export default function ProductSalesModule({ products, onRegisterSale }) {
       return;
     }
 
+    // Estructura adaptada exactamente a las columnas de Supabase
     onRegisterSale({
-      id: Date.now().toString(),
-      timestamp: new Date().toISOString(),
-      type: 'product_sale',
-      itemId: product.id,
-      itemName: product.name,
-      quantity: qtyToSell,
-      total: product.price * qtyToSell
+      producto_nombre: product.name,
+      cantidad: qtyToSell,
+      total_cobrado: Number((product.price * qtyToSell).toFixed(2)),
+      vendido_at: new Date().toISOString(),
+      productId: product.id,
+      newStock: product.stock - qtyToSell
     });
 
     // Resetear cantidad de este producto a 1

@@ -20,9 +20,6 @@ export default function AdminDashboard() {
   const [salesHistory, setSalesHistory] = useState([])
   const [now, setNow] = useState(Date.now())
 
-  // Estado para la pantalla de carga inicial
-  const [showSplash, setShowSplash] = useState(true)
-
   // Estado para el modal de agregar producto
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [newProd, setNewProd] = useState({ name: '', type: 'consumible', price: '', stock: '' })
@@ -46,6 +43,12 @@ export default function AdminDashboard() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'productos' }, () => {
         fetchCloudData()
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'historial_cajas' }, () => {
+        fetchCloudData()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'historial_ventas' }, () => {
+        fetchCloudData()
+      })
       .subscribe()
 
     return () => {
@@ -53,28 +56,39 @@ export default function AdminDashboard() {
     }
   }, [])
 
-  // Sincronización directa con Supabase usando tus tablas reales
+  // Sincronización completa con Supabase (Consolas, Ventas e Historial de Cajas)
   const fetchCloudData = async () => {
     try {
       const { data: prodData } = await supabase.from('productos').select('*')
       if (prodData) setProducts(prodData)
 
       const { data: salesData } = await supabase.from('historial_ventas').select('*')
-      if (salesData) {
-        setSalesHistory(salesData)
+      const { data: cajasData } = await supabase.from('historial_cajas').select('*')
+
+      const combinedHistory = [
+        ...(salesData || []).map(s => ({ ...s, tipo: 'producto', fecha: s.vendido_at || s.created_at, monto: Number(s.total_cobrado || s.total || 0) })),
+        ...(cajasData || []).map(c => ({ ...c, tipo: 'consola', fecha: c.tiempo_inicio || c.cerrado_at, monto: Number(c.monto_cobrado || 0) }))
+      ]
+
+      setSalesHistory(combinedHistory)
+
+      const groupedFinances = {}
+      combinedHistory.forEach(item => {
+        if (!item.fecha) return
+        const date = new Date(item.fecha).toISOString().split('T')[0]
+        if (!groupedFinances[date]) {
+          groupedFinances[date] = { totalConsoles: 0, totalProducts: 0, totalGeneral: 0 }
+        }
         
-        const groupedFinances = {}
-        salesData.forEach(sale => {
-          const date = new Date(sale.created_at || Date.now()).toISOString().split('T')[0]
-          if (!groupedFinances[date]) {
-            groupedFinances[date] = { totalConsoles: 0, totalProducts: 0, totalGeneral: 0 }
-          }
-          const amount = Number(sale.total || sale.precio || 0)
-          groupedFinances[date].totalProducts += amount
-          groupedFinances[date].totalGeneral += amount
-        })
-        setFinances(groupedFinances)
-      }
+        if (item.tipo === 'consola') {
+          groupedFinances[date].totalConsoles += item.monto
+        } else {
+          groupedFinances[date].totalProducts += item.monto
+        }
+        groupedFinances[date].totalGeneral += item.monto
+      })
+
+      setFinances(groupedFinances)
     } catch (e) {
       console.log('Error al sincronizar con Supabase:', e)
     }
@@ -85,7 +99,7 @@ export default function AdminDashboard() {
     if (data) setConsolas(data)
   }
 
- // --- ACCIONES DE CONSOLAS (BLINDADAS CONTRA ERRORES 400) ---
+  // --- ACCIONES DE CONSOLAS ---
   const handleAddTime = async (c, mins) => {
     const isStartingNew = c.estado === 'disponible' || c.estado === 'finalizado' || !c.tiempo_inicio
     const currentMins = isStartingNew ? 0 : Number(c.minutos_totales || 0)
@@ -177,17 +191,23 @@ export default function AdminDashboard() {
     }
   }
 
-  const handleRegisterSale = async (saleData) => {
+ const handleRegisterSale = async (saleData) => {
     try {
-      const { error } = await supabase.from('historial_ventas').insert([saleData])
-      if (!error) {
-        fetchCloudData()
+      const { productId, newStock, ...dbData } = saleData;
+
+      // 1. Insertar en historial de ventas
+      const { error: saleError } = await supabase.from('historial_ventas').insert([dbData]);
+      
+      // 2. Actualizar el stock del producto en la base de datos
+      if (!saleError && productId) {
+        await supabase.from('productos').update({ stock: newStock }).eq('id', productId);
       }
+
+      fetchCloudData();
     } catch (err) {
-      console.error('Error al registrar venta:', err)
+      console.error('Error al registrar venta:', err);
     }
   }
-
   return (
     <div className="p-6 bg-carbon min-h-screen text-white font-sans">
       {/* HEADER Y PESTAÑAS */}
