@@ -185,6 +185,7 @@ export default function AdminDashboard() {
     try {
       const { error } = await supabase.from('productos').insert([{
         nombre: newProd.name,
+        tipo: newProd.type,
         precio: parseFloat(newProd.price),
         stock: parseInt(newProd.stock, 10)
       }])
