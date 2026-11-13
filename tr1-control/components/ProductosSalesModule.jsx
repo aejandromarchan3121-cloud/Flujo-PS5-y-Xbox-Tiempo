@@ -42,15 +42,28 @@ export default function ProductSalesModule({ products, onRegisterSale, salesHist
     setQuantities(prev => ({ ...prev, [product.id]: 1 }));
   };
 
+  // 1. ORDENAR PRODUCTOS ESTÁTICAMENTE POR ID PARA QUE NUNCA SE MUEVAN
+  const sortedProducts = [...products].sort((a, b) => {
+    if (a.id && b.id) return a.id.localeCompare ? a.id.localeCompare(b.id) : Number(a.id) - Number(b.id);
+    return 0;
+  });
+
+  // 2. ORDENAR EL HISTORIAL DE MÁS RECIENTE A MÁS ANTIGUO (Lo nuevo arriba)
+  const sortedHistory = [...salesHistory].sort((a, b) => {
+    const dateA = new Date(a.fecha || a.vendido_at || a.tiempo_inicio || a.created_at || 0);
+    const dateB = new Date(b.fecha || b.vendido_at || b.tiempo_inicio || b.created_at || 0);
+    return dateB - dateA;
+  });
+
   return (
     <div className="space-y-8 text-white">
-      {/* SECCIÓN 1: VENTA RÁPIDA */}
+      {/* SECCIÓN 1: VENTA RÁPIDA (TARJETAS ESTÁTICAS) */}
       <div>
         <h2 className="text-lg font-bold mb-4 text-emerald-400 flex items-center gap-2">
           <span>🛒</span> Venta Rápida de Productos
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[50vh] overflow-y-auto pr-1">
-          {products.map((prod) => {
+          {sortedProducts.map((prod) => {
             const currentQty = quantities[prod.id] || 1;
             const isOutOfStock = prod.stock <= 0;
             const displayName = prod.nombre || prod.name || 'Sin nombre';
@@ -115,7 +128,7 @@ export default function ProductSalesModule({ products, onRegisterSale, salesHist
         </div>
       </div>
 
-      {/* SECCIÓN 2: HISTORIAL DETALLADO DE TRANSACCIONES */}
+      {/* SECCIÓN 2: HISTORIAL DETALLADO DE TRANSACCIONES (LO MÁS RECIENTE ARRIBA) */}
       <div className="bg-zinc-900 p-5 rounded-xl border border-zinc-800">
         <h2 className="text-lg font-bold mb-4 text-indigo-300 flex items-center gap-2">
           <span>📋</span> Historial de Ventas y Alquileres de Consolas
@@ -132,20 +145,15 @@ export default function ProductSalesModule({ products, onRegisterSale, salesHist
               </tr>
             </thead>
             <tbody>
-              {salesHistory.length === 0 ? (
+              {sortedHistory.length === 0 ? (
                 <tr>
                   <td colSpan="5" className="text-center p-4 text-zinc-500">No hay registros recientes.</td>
                 </tr>
               ) : (
-                salesHistory.map((item, index) => {
+                sortedHistory.map((item, index) => {
                   const fechaFormatted = item.fecha ? new Date(item.fecha).toLocaleString('es-CO') : 'N/A';
                   const esConsola = item.tipo === 'consola' || item.consola_nombre;
-                  // Ordenar de más reciente a más antiguo usando la fecha
-const sortedHistory = [...salesHistory].sort((a, b) => {
-  const dateA = new Date(a.fecha || a.vendido_at || a.tiempo_inicio || a.created_at || 0);
-  const dateB = new Date(b.fecha || b.vendido_at || b.tiempo_inicio || b.created_at || 0);
-  return dateB - dateA;
-});
+                  
                   return (
                     <tr key={index} className="border-b border-zinc-800/50 hover:bg-zinc-850">
                       <td className="p-3 text-xs text-zinc-400">{fechaFormatted}</td>
@@ -155,10 +163,10 @@ const sortedHistory = [...salesHistory].sort((a, b) => {
                         </span>
                       </td>
                       <td className="p-3 font-medium text-white">
-                        {esConsola ? `Alquiler ${item.consola_nombre || 'Consola'}` : (item.producto_nombre || item.nombre || item.name || 'Venta')}
+                        {esConsola ? `ALQUILER ${item.consola_nombre || 'Consola'}` : (item.producto_nombre || item.nombre || item.name || 'Venta')}
                       </td>
                       <td className="p-3 text-xs text-zinc-400">
-                        {esConsola ? `${item.minutos_usados || 0} minutos` : `Cantidad: ${item.cantidad || 1}`}
+                        {esConsola ? `${item.minutos_usados || 0} MINUTOS` : `Cantidad: ${item.cantidad || 1}`}
                       </td>
                       <td className="p-3 font-bold text-emerald-400">${fmtMoney(item.monto || item.total_cobrado || item.total)}</td>
                     </tr>
